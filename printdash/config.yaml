@@ -1,0 +1,31 @@
+# Home Assistant app (add-on) definition
+name: 3D-PrintDash
+version: "0.1.0"
+slug: printdash
+description: Local dashboard for your 3D printers (Bambu Lab LAN, Klipper/Moonraker)
+url: https://github.com/Freaky-Jay-22/3d-printdash
+# prebuilt images from GitHub (see .github/workflows/build.yaml);
+# remove this line to build the image on your own Home Assistant machine
+image: ghcr.io/freaky-jay-22/printdash-{arch}
+arch:
+  - amd64
+  - aarch64
+startup: application
+boot: auto
+init: true
+ingress: true
+ingress_port: 8090
+panel_icon: mdi:printer-3d-nozzle
+panel_title: 3D-PrintDash
+# Direct access (http://<ip>:<port>) is off by default: the app opens in the Home Assistant
+# sidebar. To use a browser directly, enter a port under the app's Configuration → Network
+# (e.g. 8090) and set a password in 3D-PrintDash.
+ports:
+  8090/tcp: null
+ports_description:
+  8090/tcp: Direct access in a browser (off by default; set a password in 3D-PrintDash when you enable it)
+homeassistant_api: true
+map:
+  - media:rw
+options: {}
+schema: {}

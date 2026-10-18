@@ -1,0 +1,12 @@
+# amqtt broker with TLS on 8883 (stands in for the Bambu printer's MQTT broker)
+# run from this folder:  amqtt -c broker.yaml
+listeners:
+  default:
+    type: tcp
+    bind: 127.0.0.1:8883
+    ssl: true
+    certfile: cert.pem
+    keyfile: key.pem
+plugins:
+  amqtt.plugins.authentication.AnonymousAuthPlugin:
+    allow_anonymous: true

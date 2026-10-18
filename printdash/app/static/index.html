@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>3D-PrintDash</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%2338bdf8' d='M19 8H5a3 3 0 0 0-3 3v6h4v4h12v-4h4v-6a3 3 0 0 0-3-3m-3 11H8v-5h8zm3-7a1 1 0 1 1 0-2 1 1 0 0 1 0 2m-1-9H6v4h12z'/></svg>">
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 8H5a3 3 0 0 0-3 3v6h4v4h12v-4h4v-6a3 3 0 0 0-3-3m-3 11H8v-5h8zm3-7a1 1 0 1 1 0-2 1 1 0 0 1 0 2m-1-9H6v4h12z"/></svg>
+      <span>3D-PrintDash</span>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button data-view="overview" class="active" data-i18n>Übersicht</button>
+      <button data-view="cameras" data-i18n>Kameras</button>
+      <button data-view="history" data-i18n>Historie</button>
+      <button data-view="filament" data-i18n>Filament</button>
+      <button data-view="settings" data-i18n>Einstellungen</button>
+    </nav>
+  </header>
+
+  <div id="nopw-banner" class="nopw-banner" hidden></div>
+  <main>
+    <section id="view-overview" class="view active">
+      <div id="printer-grid" class="printer-grid"></div>
+      <div id="empty-overview" class="empty" hidden>
+        <p data-i18n>Noch keine Drucker eingerichtet.</p>
+        <button class="btn primary" data-goto="settings" data-i18n>Drucker hinzufügen</button>
+      </div>
+    </section>
+
+    <section id="view-cameras" class="view">
+      <div id="camera-grid" class="camera-grid"></div>
+      <div id="empty-cameras" class="empty" hidden><p data-i18n>Keine Kameras vorhanden.</p></div>
+    </section>
+
+    <section id="view-history" class="view">
+      <div class="history-head">
+        <div id="history-stats" class="stats"></div>
+        <div class="history-tools">
+          <button id="history-stats-btn" class="btn" type="button" data-i18n>📊 Statistik</button>
+          <a id="history-csv" class="btn" href="api/history.csv" download data-i18n>⬇ CSV</a>
+        </div>
+        <select id="history-filter" aria-label="Drucker filtern" data-i18n-attr="aria-label"></select>
+      </div>
+      <div id="history-statpanel" class="settings-section statpanel" hidden></div>
+      <div id="history-list" class="history-list"></div>
+    </section>
+
+    <section id="view-filament" class="view">
+      <nav id="filament-subtabs" class="subtabs" role="tablist">
+        <button data-sub="bestand" class="active" data-i18n>Bestand</button>
+        <button data-sub="marken" data-i18n>Marken</button>
+      </nav>
+      <div id="filament-summary" class="stats"></div>
+      <div id="filament-locations" class="fil-locations"></div>
+      <div id="filament-brands" class="brands" hidden></div>
+    </section>
+
+    <section id="view-settings" class="view">
+      <div id="settings"></div>
+    </section>
+  </main>
+
+  <footer id="sysbar" class="sysbar" hidden></footer>
+
+  <div id="printer-detail" class="detail-overlay" hidden></div>
+
+  <div id="cam-overlay" class="overlay" hidden>
+    <div class="overlay-inner">
+      <div class="overlay-head"><span id="cam-overlay-title"></span><button class="icon-btn" data-close aria-label="Schliessen" data-i18n-attr="aria-label">✕</button></div>
+      <div class="overlay-cam"><img alt=""></div>
+    </div>
+  </div>
+
+  <dialog id="print-dialog">
+    <form method="dialog" class="dialog-body" id="print-form">
+      <div class="dialog-head"><h3 id="print-title" data-i18n>Datei drucken</h3><button class="icon-btn" value="cancel" aria-label="Schliessen" data-i18n-attr="aria-label">✕</button></div>
+      <div id="print-content"></div>
+    </form>
+  </dialog>
+
+  <dialog id="dryer-dialog">
+    <form method="dialog" class="dialog-body" id="dryer-form"></form>
+  </dialog>
+
+  <dialog id="brand-dialog">
+    <form method="dialog" class="dialog-body" id="brand-form"></form>
+  </dialog>
+
+  <dialog id="spool-dialog">
+    <form method="dialog" class="dialog-body" id="spool-form"></form>
+  </dialog>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <script src="static/i18n.js"></script>
+  <script src="static/lang/en.js"></script>
+  <script src="static/app.js"></script>
+</body>
+</html>

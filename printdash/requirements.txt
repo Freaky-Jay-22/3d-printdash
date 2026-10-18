@@ -1,0 +1,6 @@
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+paho-mqtt>=2.1,<3
+httpx>=0.27,<1
+python-multipart>=0.0.9
+websockets>=14

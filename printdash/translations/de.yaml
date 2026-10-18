@@ -1,0 +1,2 @@
+network:
+  8090/tcp: Direkter Zugriff im Browser, z. B. 8090 (leer = aus). Bitte in 3D-PrintDash ein Passwort setzen.
