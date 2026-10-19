@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+- **English:** Bambu printers: the chamber light can now also be switched in the "Monitor only" mode.
+  The firmware accepts this command without Developer Mode.
+- **Deutsch:** Bambu-Drucker: Das Kammerlicht lässt sich jetzt auch im Modus „Nur überwachen“ schalten.
+  Die Firmware nimmt diesen Befehl auch ohne Developer Mode an.
+
 ## 0.1.0 – First release
 
 **English**

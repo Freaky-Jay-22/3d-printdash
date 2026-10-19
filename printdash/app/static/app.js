@@ -516,6 +516,9 @@ function updateCard(c, p) {
     if (p.power) c.actions.append(powerBtn(p));
     if (p.state === "off") return;
     if (p.control === "monitor") {
+      if (p.light !== null) {
+        c.actions.append(actionBtn(p, p.light ? "light_off" : "light_on", t("Licht"), ICONS.light, p.light ? "on" : "", !canControl));
+      }
       c.actions.append(el("button", {
         class: "btn", disabled: !canControl, onclick: () => openPrintDialog(p.id),
       }, icon(ICONS.upload), t("Datei hochladen")));

@@ -407,6 +407,9 @@ class BambuPrinter(BasePrinter):
 
     async def command(self, action: str):
         if self.control_mode == "monitor":
+            if action in ("light_on", "light_off"):
+                await self._command_direct(action)  # the firmware accepts the light without Developer Mode
+                return
             raise PrinterError(t("Nur Überwachung eingestellt – bitte über Bambu Handy oder Bambu Studio steuern"))
         if self.control_via_ha:
             await self._command_via_ha(action)

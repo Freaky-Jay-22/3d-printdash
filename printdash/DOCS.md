@@ -127,7 +127,7 @@ programs in **Developer Mode**. 3D-PrintDash therefore offers three modes (Setti
 
 | Mode | What works |
 |---|---|
-| **Monitor only** (default) | Status, camera, preview, history, notifications, smart plug and file upload. Control via Bambu Handy or Bambu Studio. |
+| **Monitor only** (default) | Status, camera, preview, history, notifications, smart plug, chamber light and file upload. Control via Bambu Handy or Bambu Studio. |
 | **Direct** | Full control. Requires **LAN Only mode and Developer Mode** on the printer. The Bambu Handy app and cloud printing no longer work then. |
 | **Via Home Assistant** | Uses the buttons of the Bambu Lab integration for Home Assistant (if installed). Only works as far as the firmware allows. |
 
@@ -379,7 +379,7 @@ nur im **Developer Mode** an. 3D-PrintDash bietet deshalb drei Modi (Einstellung
 
 | Modus | Was geht |
 |---|---|
-| **Nur überwachen** (Standard) | Status, Kamera, Vorschau, Historie, Benachrichtigungen, Steckdose und Datei-Upload. Steuern über Bambu Handy oder Bambu Studio. |
+| **Nur überwachen** (Standard) | Status, Kamera, Vorschau, Historie, Benachrichtigungen, Steckdose, Kammerlicht und Datei-Upload. Steuern über Bambu Handy oder Bambu Studio. |
 | **Direkt** | Volle Steuerung. Braucht am Drucker **LAN-Only-Modus und Developer Mode**. Die Bambu Handy App und Cloud-Druck funktionieren dann nicht mehr. |
 | **Über Home Assistant** | Nutzt die Knöpfe der Bambu-Lab-Integration für Home Assistant (falls installiert). Funktioniert nur, soweit die Firmware das zulässt. |
 
