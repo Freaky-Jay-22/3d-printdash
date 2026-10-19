@@ -18,6 +18,8 @@ MASK = "********"
 DEFAULT_CONFIG = {
     "printers": [],
     "cameras": [],
+    # optional room sensors from Home Assistant, shown at the top of the overview (see rooms.py)
+    "rooms": [],
     "notify": {
         "on_error": True,
         "on_finish": False,
@@ -181,7 +183,7 @@ def unmask(new: dict, old: dict) -> dict:
                     restore(item, old_by_id.get(item.get("id"), {}))
     result = copy.deepcopy(new)
     restore(result, old)
-    for coll in ("printers", "cameras"):
+    for coll in ("printers", "cameras", "rooms"):
         for item in result.get(coll, []):
             if not item.get("id"):
                 item["id"] = new_id()

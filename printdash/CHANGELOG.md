@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0
+
+**English**
+- New: **Room climate** (optional). Shows Home Assistant sensors of your print room at the top of the
+  overview: temperature, humidity, air quality (VOC, CO₂, fine dust PM2.5), air pressure and battery.
+  Values turn yellow or red when it gets too humid or the air is bad; limits can be changed.
+  Set up under Settings → Room climate.
+
+**Deutsch**
+- Neu: **Raumklima** (optional). Zeigt Sensoren deines Druckraums aus Home Assistant oben in der
+  Übersicht: Temperatur, Luftfeuchtigkeit, Luftqualität (VOC, CO₂, Feinstaub PM2.5), Luftdruck und
+  Batterie. Die Werte werden gelb bzw. rot, wenn es zu feucht wird oder die Luft schlecht ist; die
+  Grenzwerte sind einstellbar. Einrichten unter Einstellungen → Raumklima.
+
 ## 0.1.1
 
 - **English:** Bambu printers: the chamber light can now also be switched in the "Monitor only" mode.

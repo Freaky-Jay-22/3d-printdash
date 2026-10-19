@@ -429,3 +429,15 @@ a.btn { text-decoration: none; }
 .nopw-banner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 9px 20px; font-size: 13px;
   background: color-mix(in srgb, var(--warn) 18%, var(--panel)); border-bottom: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); }
 .nopw-banner[hidden] { display: none; }
+
+/* room climate bar at the top of the overview */
+.roombar { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-bottom: 16px; }
+.roombar[hidden] { display: none; }
+.roombar .room { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 12px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.roombar .room-name { margin-right: 4px; }
+.roombar .sensor.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); font-weight: 600; }
+.roombar .sensor.bad { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); font-weight: 600; }
+.room-limits { margin-top: 10px; }
+.room-limits summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.room-limits .fields { margin-top: 10px; }

@@ -147,7 +147,13 @@ def cam_state(mode: str = ""):
 SENSORS = {"sensor.lager_batterie": ("14", "Lager Sensor Batterie", "battery", "%"),"sensor.lager_temperatur": ("19.8", "Lager Temperatur", "temperature", "°C"),
            "sensor.lager_feuchtigkeit": ("46", "Lager Feuchtigkeit", "humidity", "%"),
            "sensor.ams_temperatur": ("27.1", "AMS Temperatur", "temperature", "°C"),
-           "sensor.ams_feuchtigkeit": ("18", "AMS Feuchtigkeit", "humidity", "%")}
+           "sensor.ams_feuchtigkeit": ("18", "AMS Feuchtigkeit", "humidity", "%"),
+           # room sensor with air quality (temperature, humidity, VOC, pressure, battery)
+           "sensor.raum_temperatur": ("27.1", "Raum Temperatur", "temperature", "°C"),
+           "sensor.raum_luftfeuchtigkeit": ("44.0", "Raum Luftfeuchtigkeit", "humidity", "%"),
+           "sensor.raum_voc": ("397", "Raum VOC", "volatile_organic_compounds_parts", "ppb"),
+           "sensor.raum_luftdruck": ("963.2", "Raum Luftdruck", "atmospheric_pressure", "hPa"),
+           "sensor.raum_batterie": ("97", "Raum Batterie", "battery", "%")}
 PLUGS = {"switch.drucker_u1": "on", "light.steckdose_x1c": "on", "button.x1c_druck_pausieren": "unknown", "button.x1c_druck_fortsetzen": "unknown", "button.x1c_druck_stoppen": "unknown", "button.x1c_aktualisieren": "unknown", "light.x1c_kammerbeleuchtung": "on", "light.deckenlampe": "off", "image.x1c_00m00a000000000_titelbild": "2026-10-17"}
 
 @app.get("/api/states")

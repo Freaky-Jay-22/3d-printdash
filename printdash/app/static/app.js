@@ -328,8 +328,41 @@ function renderSysbar() {
 /* ---------- overview ---------- */
 const cards = new Map(); // printer id -> {node, camId, ...}
 
+/* ---------- room climate (top of the overview, optional) ---------- */
+const ROOM_ICONS = { temp: "🌡", hum: "💧", voc: "VOC", co2: "CO₂", pm25: "PM2.5", pressure: "⏲", bat: "🔋" };
+function roomValue(it) {
+  const v = it.value;
+  if (v == null) return "–";
+  const unit = it.unit || { temp: "°C", hum: "%", voc: "ppb", co2: "ppm", pm25: "µg/m³", pressure: "hPa", bat: "%" }[it.key];
+  const digits = it.key === "temp" || (it.key === "pm25" && v < 10) ? 1 : 0;
+  return `${v.toFixed(digits)} ${unit}`;
+}
+function roomTitle(it, lim) {
+  switch (it.key) {
+    case "temp": return lim.temp_max ? t("Temperatur – rot über {0} °C", lim.temp_max) : t("Temperatur");
+    case "hum": return lim.hum_max ? t("Luftfeuchtigkeit – rot über {0} %", lim.hum_max) : t("Luftfeuchtigkeit");
+    case "voc": return t("Flüchtige organische Stoffe (VOC) – gelb ab {0}, rot ab {1} ppb", lim.voc_warn, lim.voc_max);
+    case "co2": return t("CO₂ – gelb ab {0}, rot ab {1} ppm", lim.co2_warn, lim.co2_max);
+    case "pm25": return t("Feinstaub PM2.5 – gelb ab {0}, rot ab {1} µg/m³", lim.pm25_warn, lim.pm25_max);
+    case "pressure": return t("Luftdruck");
+    case "bat": return t("Batterie des Sensors");
+    default: return "";
+  }
+}
+function renderRooms() {
+  const bar = $("#roombar");
+  const rooms = lastState?.rooms || [];
+  bar.hidden = !rooms.length;
+  if (!rooms.length) { bar.replaceChildren(); return; }
+  bar.replaceChildren(...rooms.map((r) => el("div", { class: "room" },
+    el("b", { class: "room-name" }, r.name || t("Raum")),
+    ...r.items.map((it) => el("span", { class: `sensor${it.level ? " " + it.level : ""}`, title: roomTitle(it, r.limits) },
+      it.key === "bat" && it.value != null && it.value < 20 ? "🪫" : ROOM_ICONS[it.key], " ", roomValue(it))))));
+}
+
 function renderOverview() {
   if (!lastState) return;
+  renderRooms();
   const grid = $("#printer-grid");
   const printers = lastState.printers;
   $("#empty-overview").hidden = printers.length > 0;
@@ -944,6 +977,16 @@ function renderSettings() {
     el("button", { class: "btn", onclick: () => { draft.cameras.push({ id: "", name: "Kamera", url: "", printer_id: "", snapshot: false }); renderSettings(); } }, t("+ Kamera"))));
   root.append(cSec);
 
+  /* room climate */
+  if (!draft.rooms) draft.rooms = [];
+  const rSec = el("div", { class: "settings-section" },
+    el("h3", {}, t("Raumklima")),
+    el("p", { class: "hint" }, t("Optional: Sensoren aus Home Assistant für den Raum, in dem die Drucker stehen, z. B. ein Luftqualitäts-Sensor. Die Werte erscheinen oben in der Übersicht und werden gelb bzw. rot, wenn es zu feucht wird oder die Luft schlecht ist. Jeder Sensor ist optional.")));
+  for (const room of draft.rooms) rSec.append(roomItem(room));
+  rSec.append(el("div", { class: "row-btns" },
+    el("button", { class: "btn", onclick: () => { draft.rooms.push({ id: "", name: t("Druckraum") }); renderSettings(); } }, t("+ Raum"))));
+  root.append(rSec);
+
   /* notifications */
   const n = draft.notify;
   const nSec = el("div", { class: "settings-section" }, el("h3", {}, t("Benachrichtigungen")),
@@ -1172,6 +1215,50 @@ function bambuControlFields(p) {
   p.control = p.control || "monitor";
   if (haBambu === null) {
     api("api/ha/bambu").then((r) => { haBambu = r; render(); }).catch(() => { haBambu = { available: false }; render(); });
+  }
+  render();
+  return wrap;
+}
+
+function roomItem(room) {
+  const wrap = el("div", { class: "item" });
+  const render = () => {
+    const opt = (list, cur) => {
+      const o = [["", t("– keiner –")], ...list.map((x) => [x.entity_id, `${x.name}${x.state != null ? ` (${x.state}${x.unit ? " " + x.unit : ""})` : ""}`])];
+      if (cur && !o.some(([v]) => v === cur)) o.push([cur, cur]);
+      return o;
+    };
+    const c = climate || {};
+    const sensor = (label, key, list, hint = "") => field(label, room, `${key}_entity`, { options: opt(list || [], room[`${key}_entity`]), hint });
+    const num = (label, key, placeholder) => field(label, room, key, { type: "number", placeholder });
+    const limits = el("details", { class: "room-limits" },
+      el("summary", {}, t("Grenzwerte")),
+      el("div", { class: "fields" },
+        num(t("Luftfeuchtigkeit: rot über (%)"), "hum_max", "60"),
+        num(t("Temperatur: rot über (°C, leer = aus)"), "temp_max", ""),
+        num(t("VOC: gelb ab (ppb)"), "voc_warn", "250"),
+        num(t("VOC: rot ab (ppb)"), "voc_max", "2000"),
+        num(t("CO₂: gelb ab (ppm)"), "co2_warn", "1000"),
+        num(t("CO₂: rot ab (ppm)"), "co2_max", "1500"),
+        num(t("PM2.5: gelb ab (µg/m³)"), "pm25_warn", "15"),
+        num(t("PM2.5: rot ab (µg/m³)"), "pm25_max", "35")));
+    wrap.replaceChildren(
+      el("div", { class: "item-head" }, el("span", {}, room.name || t("Raum")),
+        el("button", { class: "btn danger", onclick: () => { draft.rooms.splice(draft.rooms.indexOf(room), 1); renderSettings(); } }, t("Entfernen"))),
+      el("div", { class: "fields" },
+        field(t("Name"), room, "name", { placeholder: t("Druckraum") }),
+        sensor(t("Temperatur"), "temp", c.temperature),
+        sensor(t("Luftfeuchtigkeit"), "hum", c.humidity),
+        sensor(t("Luftqualität: VOC"), "voc", c.voc),
+        sensor(t("Luftqualität: CO₂"), "co2", c.co2),
+        sensor(t("Luftqualität: Feinstaub PM2.5"), "pm25", c.pm25),
+        sensor(t("Luftdruck"), "pressure", c.pressure),
+        sensor(t("Batterie"), "bat", c.battery, t("Listet auch andere %-Sensoren"))),
+      limits,
+      ...(climate && !climate.available ? [el("p", { class: "note" }, t("Home Assistant nicht verbunden – Sensoren nicht verfügbar."))] : []));
+  };
+  if (climate === null) {
+    api("api/ha/climate").then((r) => { climate = r; render(); }).catch(() => { climate = { available: false }; render(); });
   }
   render();
   return wrap;

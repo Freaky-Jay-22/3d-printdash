@@ -206,6 +206,7 @@ async def climate_sensors() -> dict:
     the battery list additionally offers every other %-sensor, in case one is mis-tagged."""
     states = await _request("GET", "/states")
     temps, hums, bats, other_pct = [], [], [], []
+    vocs, co2s, pms, press = [], [], [], []
     for s in states:
         eid = s["entity_id"]
         if not eid.startswith("sensor."):
@@ -224,6 +225,15 @@ async def climate_sensors() -> dict:
         elif dc == "humidity" or (unit == "%" and any(w in text for w in ("humid", "feucht"))):
             hums.append(item)
             other_pct.append(item)
+        elif dc in ("volatile_organic_compounds", "volatile_organic_compounds_parts") or unit == "ppb" \
+                or "voc" in text:
+            vocs.append(item)
+        elif dc == "carbon_dioxide" or "co2" in text:
+            co2s.append(item)
+        elif dc in ("pm25", "pm1", "pm10") or any(w in text for w in ("pm2", "pm1", "feinstaub", "particulate")):
+            pms.append(item)
+        elif dc in ("atmospheric_pressure", "pressure") or unit in ("hPa", "mbar", "kPa", "inHg", "psi"):
+            press.append(item)
         elif unit == "%":
             other_pct.append(item)
     key = lambda x: x["name"].lower()  # noqa: E731
@@ -231,7 +241,10 @@ async def climate_sensors() -> dict:
     hums.sort(key=key)
     bats.sort(key=key)
     other_pct.sort(key=key)
-    return {"temperature": temps, "humidity": hums, "battery": bats + other_pct}
+    for lst in (vocs, co2s, pms, press):
+        lst.sort(key=key)
+    return {"temperature": temps, "humidity": hums, "battery": bats + other_pct,
+            "voc": vocs, "co2": co2s, "pm25": pms, "pressure": press}
 
 
 async def sensor_values(entity_ids: list) -> dict:

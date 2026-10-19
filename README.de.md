@@ -41,6 +41,7 @@ Klipper-Drucker, eine Tabelle oder Notizen fürs Filament und Home Assistant fü
 - **Datensicherung** und Wiederherstellung, Übernahme von einer anderen Installation
 - **Benachrichtigungen** mit Kamerabild über die Home-Assistant-App
 - **Steckdosen** aus Home Assistant schalten, mit automatischem Ausschalten nach dem Druck
+- **Raumklima** (optional): Temperatur, Luftfeuchtigkeit, Luftqualität und Sensor-Batterie deines Druckraums
 - **Systemauslastung** des Home-Assistant-Rechners (CPU, RAM, Speicher, Temperaturen) unten in der Übersicht
 - **Deutsch und Englisch**, Währung frei wählbar
 
@@ -273,6 +274,24 @@ Unter **Einstellungen → Datensicherung**:
 - **Von anderer Installation übernehmen:** Adresse (z. B. `http://192.168.1.10:8090`) und Passwort einer
   laufenden Installation eingeben, z. B. einer älteren Version, und alle Daten übers Netzwerk holen.
   Zugangscodes werden nicht übertragen; du bekommst eine Liste, was neu einzutragen ist.
+
+## Raumklima
+
+Auf Wunsch zeigt 3D-PrintDash oben in der Übersicht das Klima des Raums, in dem die Drucker stehen –
+z. B. von einem Luftqualitäts-Sensor, der schon in Home Assistant ist. Einrichten unter
+**Einstellungen → Raumklima → + Raum** und die vorhandenen Sensoren auswählen. Jeder Sensor ist optional:
+
+| Sensor | Gelb | Rot |
+|---|---|---|
+| Temperatur | – | über deinem Grenzwert (standardmässig aus) |
+| Luftfeuchtigkeit | – | über 60 % |
+| Luftqualität: VOC | ab 250 ppb | ab 2000 ppb |
+| Luftqualität: CO₂ | ab 1000 ppm | ab 1500 ppm |
+| Luftqualität: Feinstaub PM2.5 | ab 15 µg/m³ | ab 35 µg/m³ |
+| Luftdruck | – | – |
+| Batterie | – | unter 20 % |
+
+Alle Grenzwerte lassen sich unter **Grenzwerte** ändern. Mehrere Räume sind möglich.
 
 ## Benachrichtigungen
 

@@ -40,6 +40,7 @@ for the Klipper printer, a spreadsheet or notes for your filament, and Home Assi
 - **Backup** and restore, import from another installation
 - **Notifications** with camera image via the Home Assistant app
 - **Smart plugs** from Home Assistant, with automatic switch-off after a print
+- **Room climate** (optional): temperature, humidity, air quality and sensor battery of your print room
 - **System load** of the Home Assistant machine (CPU, RAM, storage, temperatures) at the bottom of the overview
 - **English and German**, any currency
 
@@ -268,6 +269,24 @@ Under **Settings → Backup**:
 - **Import from another installation:** enter the address (e.g. `http://192.168.1.10:8090`) and password
   of a running installation – for example an older version – to fetch all data over the network. Access
   codes are not transferred; you will be told which ones to enter again.
+
+## Room climate
+
+Optionally, 3D-PrintDash shows the climate of the room your printers are in at the top of the overview –
+e.g. from an air quality sensor that is already in Home Assistant. Set it up under
+**Settings → Room climate → + Room** and pick the sensors you have. Every sensor is optional:
+
+| Sensor | Yellow | Red |
+|---|---|---|
+| Temperature | – | above your limit (off by default) |
+| Humidity | – | above 60 % |
+| Air quality: VOC | from 250 ppb | from 2000 ppb |
+| Air quality: CO₂ | from 1000 ppm | from 1500 ppm |
+| Air quality: fine dust PM2.5 | from 15 µg/m³ | from 35 µg/m³ |
+| Air pressure | – | – |
+| Battery | – | below 20 % |
+
+You can change all limits under **Limits**. Several rooms are possible.
 
 ## Notifications
 

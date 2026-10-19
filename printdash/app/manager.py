@@ -5,7 +5,7 @@ import re
 import time
 
 from . import config as config_store
-from . import costs, filament, ha, history, i18n, maintenance, notify, system
+from . import costs, filament, ha, history, i18n, maintenance, notify, rooms, system
 from .i18n import t
 from .camera import CameraHub
 from .printers import ACTIVE_STATES, create
@@ -47,6 +47,7 @@ class Manager:
         self._power_task = None
         self.power = {}          # printer id -> {entity, on, available, error}
         self.ams_sensors = {}    # printer id -> {temp, hum, bat} from Home Assistant
+        self.room_data = {}      # room id -> sensor values from Home Assistant (rooms.py)
         self._auto_off = {}      # printer id -> time the last print ended
         self.job_meta = {}       # printer id -> {key, thumb, thumb_type, weight_g, length_m, at}
         self.pending_meta = {}   # printer id -> {stem, meta} for files sent from 3D-PrintDash
@@ -172,6 +173,7 @@ class Manager:
             "language": (self.cfg.get("ui") or {}).get("language") or "",
             "filament_low_g": float((self.cfg.get("filament") or {}).get("low_warn_g") or 0),
             "system": system.snapshot() if (self.cfg.get("ui") or {}).get("show_system", True) else None,
+            "rooms": rooms.view(self.cfg.get("rooms") or [], self.room_data),
         }
 
     def _ams_source(self, pid) -> str:
@@ -251,6 +253,11 @@ class Manager:
                         await self._refresh_ams_sensors(pid)
                     except Exception:  # noqa: BLE001
                         log.exception("AMS sensors")
+            if tick % 2 == 0:  # room sensors every 10 s
+                try:
+                    self.room_data = await rooms.read(self.cfg.get("rooms") or [])
+                except Exception:  # noqa: BLE001
+                    log.exception("Room sensors")
             if time.time() - self._maint_at > 30:
                 try:
                     await self.refresh_maintenance()
