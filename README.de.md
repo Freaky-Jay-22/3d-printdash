@@ -12,6 +12,18 @@ Home-Assistant-Integrationen.
 > Snapmaker, Klipper oder Home Assistant. Produktnamen werden nur verwendet, um zu beschreiben,
 > welche Geräte unterstützt werden.
 
+## Warum 3D-PrintDash?
+
+Wer mehr als einen Drucker hat, kennt das: eine App für den Bambu-Drucker, eine Weboberfläche für den
+Klipper-Drucker, eine Tabelle oder Notizen fürs Filament und Home Assistant für die Steckdosen.
+
+3D-PrintDash bringt das zusammen in **einem lokalen Dashboard für deine ganze Druckfarm**:
+
+- **Bambu-Lab- und Klipper-Drucker nebeneinander** – verschiedene Marken, eine Oberfläche
+- **Filamentverwaltung eingebaut** – du weisst, welche Spule wo ist und wie viel noch drauf ist, ohne Zusatz-Tool
+- **Für Home Assistant gemacht** – läuft als App, öffnet sich in der Seitenleiste, nutzt HA für Benachrichtigungen und Steckdosen
+- **Komplett lokal** – kein Cloud-Konto, keine Daten verlassen dein Netzwerk
+
 ## Funktionen
 
 - **Übersicht:** eine Karte pro Drucker mit Kamera, Status, Fortschritt, Restzeit und voraussichtlichem
@@ -31,6 +43,26 @@ Home-Assistant-Integrationen.
 - **Steckdosen** aus Home Assistant schalten, mit automatischem Ausschalten nach dem Druck
 - **Systemauslastung** des Home-Assistant-Rechners (CPU, RAM, Speicher, Temperaturen) unten in der Übersicht
 - **Deutsch und Englisch**, Währung frei wählbar
+
+## Screenshots
+
+![Übersicht mit einem Bambu-Lab- und einem Klipper-Drucker](https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/overview.jpg)
+
+**Übersicht** mit einem Bambu-Lab- und einem Klipper-Drucker nebeneinander.
+① Mehrere Kameras pro Drucker (eingebaut und extern) ② AMS-Temperatur, -Feuchtigkeit und Sensor-Batterie
+aus Home Assistant ③ Geladenes Filament pro Werkzeugkopf
+
+![Filamentverwaltung](https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/filament.png)
+
+**Filament:** ① Bestand auf einen Blick ② Spulen im Drucker werden automatisch erkannt ③ Trockner-Timer
+
+![Detailansicht eines Druckers](https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/detail.jpg)
+
+**Detailansicht** mit allen Kameras, Status und Steuerung. ① Wartungserinnerungen fürs Reinigen und Schmieren
+
+![Alle Kameras](https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/cameras.jpg)
+
+**Kameras:** alle Drucker- und externen Kameras auf einer Seite.
 
 ## Unterstützte Drucker
 
