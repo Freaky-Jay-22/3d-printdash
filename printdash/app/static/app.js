@@ -1136,10 +1136,25 @@ function priceSection() {
   render();
   return el("div", { class: "settings-section" },
     el("h3", {}, t("Filamentpreise")),
-    el("p", { class: "hint" }, t("Preis pro kg je Material. Varianten wie „PLA Basic“ oder „PETG HF“ zählen zum Grundmaterial, „PETG CF“ zu PETG-CF. Alles andere nutzt den Standardpreis. Die Kosten werden beim Druckende gespeichert.")),
+    el("p", { class: "hint" }, t("Preis pro kg je Material. Varianten wie „PLA Basic“ oder „PETG HF“ zählen zum Grundmaterial, „PETG CF“ zu PETG-CF. Alles andere nutzt den Standardpreis. Neue Materialien unter Filament → Marken erscheinen hier automatisch. Die Kosten werden beim Druckende gespeichert.")),
     list,
     el("div", { class: "row-btns" },
-      el("button", { class: "btn", onclick: () => { rows.push({ name: "", price: c.default_price_per_kg }); render(); $$("input", list).at(-2)?.focus(); } }, t("+ Material"))),
+      el("button", { class: "btn", onclick: () => { rows.push({ name: "", price: c.default_price_per_kg }); render(); $$("input", list).at(-2)?.focus(); } }, t("+ Material")),
+      el("button", { class: "btn", title: t("Ergänzt alle Materialien, die bei den Marken erfasst sind und hier noch fehlen"), onclick: async () => {
+        try {
+          const f = await api("api/filament");
+          const norm = (s) => String(s || "").toUpperCase().replace(/[\s_/]+/g, "-");
+          const have = new Set(rows.map((r) => norm(r.name)));
+          const fresh = [];
+          for (const b of f.brands || []) for (const m of b.materials || []) {
+            const name = String(m).trim().toUpperCase();
+            if (name && !have.has(norm(name))) { have.add(norm(name)); fresh.push({ name, price: priceFor(name) }); }
+          }
+          if (!fresh.length) { toast(t("Alle Materialien der Marken sind schon da"), "ok"); return; }
+          rows.push(...fresh); sync(); render();
+          toast(t("{0} hinzugefügt – bitte unten speichern", fresh.map((x) => x.name).join(", ")), "ok");
+        } catch (e) { toast(e.message, "bad"); }
+      } }, t("Aus Marken übernehmen"))),
     el("div", { class: "fields", style: "margin-top:12px" },
       field(t("Standardpreis pro kg (andere Materialien)"), c, "default_price_per_kg", { type: "number" }),
       currencyField(c, render)));
@@ -1788,7 +1803,7 @@ function openBrandDialog(brand) {
       el("button", { class: "btn primary", type: "button", onclick: async () => {
         if (newMat.value.trim()) addMat();
         b.colors = b.colors.filter((c) => c.name || c.color);
-        try { await api("api/filament/brands", { method: "POST", json: b }); dlg.close(); loadFilament(); }
+        try { pricesAdded(await api("api/filament/brands", { method: "POST", json: b })); dlg.close(); loadFilament(); }
         catch (e) { toast(e.message, "bad"); }
       } }, t("Speichern"))));
   dlg.showModal();
@@ -2152,7 +2167,17 @@ async function rememberInBrand(it) {
   if (cname && !b.colors.some((c) => c.name.toLowerCase() === cname.toLowerCase() && (!c.material || c.material === mat))) {
     b.colors.push({ name: cname, color: it.color, material: mat }); changed = true;
   }
-  if (changed) await api("api/filament/brands", { method: "POST", json: b });
+  if (changed) pricesAdded(await api("api/filament/brands", { method: "POST", json: b }));
+}
+
+// tell the user when a new material got its own row under "Filament prices"
+function pricesAdded(res) {
+  const added = res?.added_prices || [];
+  if (!added.length) return;
+  const cur = lastState?.costs?.currency || guessCurrency();
+  toast(t("Zu den Filamentpreisen hinzugefügt: {0} – Preis bei Bedarf unter Einstellungen anpassen",
+    added.map((a) => `${a.name} (${a.price} ${cur}/kg)`).join(", ")), "ok");
+  if (lastState?.costs?.materials) for (const a of added) lastState.costs.materials[a.name] = a.price;
 }
 
 

@@ -125,6 +125,11 @@ Object.assign(I18N.en, {
   "Die Drucker werden direkt im Netzwerk angesprochen. Home-Assistant-Integrationen werden nicht benötigt.":
     "Printers are contacted directly on your network. No Home Assistant integrations are needed.",
   "Externe Kameras": "External cameras",
+  "Ergänzt alle Materialien, die bei den Marken erfasst sind und hier noch fehlen": "Adds every material entered under brands that is still missing here",
+  "Alle Materialien der Marken sind schon da": "All materials of your brands are already listed",
+  "{0} hinzugefügt – bitte unten speichern": "{0} added – please save below",
+  "Aus Marken übernehmen": "Add from brands",
+  "Zu den Filamentpreisen hinzugefügt: {0} – Preis bei Bedarf unter Einstellungen anpassen": "Added to filament prices: {0} – adjust the price under Settings if needed",
   "Temperatur – rot über {0} °C": "Temperature – red above {0} °C",
   "Luftfeuchtigkeit – rot über {0} %": "Humidity – red above {0} %",
   "Flüchtige organische Stoffe (VOC) – gelb ab {0}, rot ab {1} ppb": "Volatile organic compounds (VOC) – yellow from {0}, red from {1} ppb",
@@ -195,8 +200,8 @@ Object.assign(I18N.en, {
   "Material": "Material",
   "Preis pro kg": "Price per kg",
   "Filamentpreise": "Filament prices",
-  "Preis pro kg je Material. Varianten wie „PLA Basic“ oder „PETG HF“ zählen zum Grundmaterial, „PETG CF“ zu PETG-CF. Alles andere nutzt den Standardpreis. Die Kosten werden beim Druckende gespeichert.":
-    "Price per kg for each material. Variants such as “PLA Basic” or “PETG HF” count as the base material, “PETG CF” as PETG-CF. Everything else uses the default price. Costs are stored when a print ends.",
+  "Preis pro kg je Material. Varianten wie „PLA Basic“ oder „PETG HF“ zählen zum Grundmaterial, „PETG CF“ zu PETG-CF. Alles andere nutzt den Standardpreis. Neue Materialien unter Filament → Marken erscheinen hier automatisch. Die Kosten werden beim Druckende gespeichert.":
+    "Price per kg for each material. Variants such as “PLA Basic” or “PETG HF” count as the base material, “PETG CF” as PETG-CF. Everything else uses the default price. New materials under Filament → Brands appear here automatically. Costs are stored when a print ends.",
   "+ Material": "+ Material",
   "Standardpreis pro kg (andere Materialien)": "Default price per kg (other materials)",
   "Währung": "Currency",

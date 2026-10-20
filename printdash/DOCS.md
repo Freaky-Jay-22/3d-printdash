@@ -219,7 +219,9 @@ running even when the browser is closed.
   printers 3D-PrintDash fetches the file from the printer.
 - **Filament usage** according to the slicer, per print in grams and metres, proportionally for cancelled prints.
 - **Cost:** under Settings → **Filament prices**, set a price per kg for each material. Variants such as
-  "PLA Basic" count as the base material, anything unknown uses the default price.
+  "PLA Basic" count as the base material, anything unknown uses the default price. A material you add
+  under Filament → Brands appears there automatically (starting with the price used so far);
+  "Add from brands" adds the ones of older brands.
 - **Firmware versions** in the detail view, as far as the printer reports them.
 
 ### Maintenance
@@ -495,7 +497,9 @@ Der Timer läuft auch weiter, wenn der Browser geschlossen ist.
   Bambu-Druckern holt 3D-PrintDash die Datei dafür vom Drucker.
 - **Filamentverbrauch** laut Slicer pro Druck in Gramm und Metern, bei abgebrochenen Drucken anteilig.
 - **Kosten:** unter Einstellungen → **Filamentpreise** einen Preis pro kg je Material. Varianten wie
-  „PLA Basic“ zählen zum Grundmaterial, alles Unbekannte zum Standardpreis.
+  „PLA Basic“ zählen zum Grundmaterial, alles Unbekannte zum Standardpreis. Ein Material, das du unter
+  Filament → Marken neu erfasst, erscheint dort automatisch (mit dem bisher verwendeten Preis);
+  „Aus Marken übernehmen“ ergänzt die Materialien älterer Marken.
 - **Firmware-Versionen** in der Detailansicht, soweit der Drucker sie meldet.
 
 ### Wartung

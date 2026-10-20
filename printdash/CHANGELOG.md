@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+
+- **English:** A material added under Filament → Brands (e.g. PETG-GF) now appears under Settings →
+  Filament prices automatically, starting with the price used so far. The new button "Add from brands"
+  adds the materials of existing brands.
+- **Deutsch:** Ein Material, das unter Filament → Marken neu erfasst wird (z. B. PETG-GF), erscheint jetzt
+  automatisch unter Einstellungen → Filamentpreise, mit dem bisher verwendeten Preis. Der neue Knopf
+  „Aus Marken übernehmen“ ergänzt die Materialien bestehender Marken.
+
 ## 0.2.0
 
 **English**

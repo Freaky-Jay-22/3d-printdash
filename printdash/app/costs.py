@@ -41,6 +41,26 @@ def price_per_kg(cfg: dict, material: str) -> float:
     return float(c.get("default_price_per_kg") or 0)
 
 
+def add_materials(cfg: dict, names) -> list:
+    """Add materials that have no price of their own yet (e.g. new under brands).
+    The start price is the one used so far (base material or default), so costs do not change.
+    Returns [{name, price}] of what was added; cfg["costs"] is changed in place."""
+    c = cfg.setdefault("costs", {})
+    if not isinstance(c.get("materials"), dict):
+        c["materials"] = dict(settings(cfg)["materials"])
+    known = {normalize(k) for k in c["materials"]}
+    added = []
+    for name in names or []:
+        key = str(name or "").strip().upper()
+        if not key or normalize(key) in known:
+            continue
+        price = price_per_kg(cfg, key)
+        c["materials"][key] = price
+        known.add(normalize(key))
+        added.append({"name": key, "price": price})
+    return added
+
+
 def job_cost(cfg: dict, materials: list | None, total_g: float | None, share: float = 1.0):
     """Returns (cost, materials scaled by share). Uses the default price when the
     material split is unknown."""

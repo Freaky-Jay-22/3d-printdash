@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 
 from . import config as config_store
-from . import auth, backup, filament, ha, history, i18n, maintenance, notify, uploads
+from . import auth, backup, costs, filament, ha, history, i18n, maintenance, notify, uploads
 from .i18n import t
 from .manager import Manager
 from .printers import PrinterError
@@ -483,10 +483,18 @@ async def delete_filament_item(item_id: str):
 
 @app.post("/api/filament/brands")
 async def save_filament_brand(body: dict):
+    data = await asyncio.to_thread(filament.load)
+    old = next((b for b in data["brands"] if body.get("id") and b.get("id") == body.get("id")), None)
     try:
-        return await asyncio.to_thread(filament.upsert_brand, body)
+        brand = await asyncio.to_thread(filament.upsert_brand, body)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
+    # materials new in this brand get their own row under "Filament prices"
+    before = {str(m).upper() for m in (old or {}).get("materials") or []}
+    added = costs.add_materials(manager.cfg, [m for m in brand.get("materials") or [] if str(m).upper() not in before])
+    if added:
+        await asyncio.to_thread(config_store.save, manager.cfg)
+    return {**brand, "added_prices": added}
 
 
 @app.delete("/api/filament/brands/{brand_id}")

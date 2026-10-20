@@ -248,7 +248,9 @@ Der Timer läuft auch weiter, wenn der Browser geschlossen ist.
   Bambu-Druckern holt 3D-PrintDash die Datei dafür vom Drucker.
 - **Filamentverbrauch** laut Slicer pro Druck in Gramm und Metern, bei abgebrochenen Drucken anteilig.
 - **Kosten:** unter Einstellungen → **Filamentpreise** einen Preis pro kg je Material. Varianten wie
-  „PLA Basic“ zählen zum Grundmaterial, alles Unbekannte zum Standardpreis.
+  „PLA Basic“ zählen zum Grundmaterial, alles Unbekannte zum Standardpreis. Ein Material, das du unter
+  Filament → Marken neu erfasst, erscheint dort automatisch (mit dem bisher verwendeten Preis);
+  „Aus Marken übernehmen“ ergänzt die Materialien älterer Marken.
 - **Firmware-Versionen** in der Detailansicht, soweit der Drucker sie meldet.
 
 ## Wartung

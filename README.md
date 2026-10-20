@@ -243,7 +243,9 @@ running even when the browser is closed.
   printers 3D-PrintDash fetches the file from the printer.
 - **Filament usage** according to the slicer, per print in grams and metres, proportionally for cancelled prints.
 - **Cost:** under Settings → **Filament prices**, set a price per kg for each material. Variants such as
-  "PLA Basic" count as the base material, anything unknown uses the default price.
+  "PLA Basic" count as the base material, anything unknown uses the default price. A material you add
+  under Filament → Brands appears there automatically (starting with the price used so far);
+  "Add from brands" adds the ones of older brands.
 - **Firmware versions** in the detail view, as far as the printer reports them.
 
 ## Maintenance
