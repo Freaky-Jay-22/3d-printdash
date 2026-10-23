@@ -4,6 +4,7 @@ import time
 import base64
 import logging
 import os
+import re
 import secrets
 import tempfile
 from contextlib import asynccontextmanager
@@ -13,7 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 
 from . import config as config_store
-from . import auth, backup, costs, filament, ha, history, i18n, maintenance, notify, uploads
+from . import auth, backup, costs, filament, ha, history, i18n, maintenance, notify, timelapse, uploads
 from .i18n import t
 from .manager import Manager
 from .printers import PrinterError
@@ -157,6 +158,8 @@ async def get_state(request: Request):
     st = manager.state()
     st["auth"] = {"enabled": bool(_password_hash()),
                   "ingress": bool(request.client and request.client.host == INGRESS_IP)}
+    # test build (dev/make_test_app.py sets PRINTDASH_TEST=1): orange bar in the interface
+    st["test_build"] = bool(os.environ.get("PRINTDASH_TEST"))
     return st
 
 
@@ -383,6 +386,43 @@ async def history_snapshot(job_id: int):
     return FileResponse(path, media_type="image/jpeg")
 
 
+@app.get("/api/history/{job_id}/timelapse.mp4")
+async def history_timelapse(job_id: int, download: bool = False):
+    path = await asyncio.to_thread(history.timelapse_path, job_id)
+    if not path:
+        raise HTTPException(404)
+    return FileResponse(path, media_type="video/mp4",
+                        filename=os.path.basename(path) if download else None)
+
+
+@app.delete("/api/history/{job_id}/timelapse")
+async def history_timelapse_delete(job_id: int):
+    """Delete only the video; the history entry stays."""
+    return {"deleted": await asyncio.to_thread(history.delete_timelapse, job_id)}
+
+
+@app.get("/api/timelapse/videos")
+async def timelapse_videos():
+    return await asyncio.to_thread(history.timelapse_videos)
+
+
+@app.post("/api/printers/{pid}/timelapse")
+async def printer_timelapse(pid: str, body: dict):
+    """Start or stop the timelapse of the running print by hand: {"on": true|false}."""
+    if pid not in manager.printers:
+        raise HTTPException(404)
+    try:
+        return manager.set_timelapse(pid, bool(body.get("on")))
+    except ValueError as exc:
+        raise HTTPException(409, str(exc))
+
+
+@app.get("/api/timelapse/storage")
+async def timelapse_storage(storage: str | None = None, folder: str | None = None):
+    """Check a storage choice before saving: does it exist, is it writable, free space."""
+    return await asyncio.to_thread(timelapse.storage_info, manager.cfg, storage, folder)
+
+
 @app.get("/api/history/{job_id}/preview")
 async def history_preview(job_id: int):
     path = history.snapshot_path(job_id, "preview")
@@ -556,6 +596,10 @@ async def put_config(body: dict, request: Request):
     new_cfg.setdefault("ui", {})
     if new_cfg["ui"].get("language") not in ("", None, *i18n.LANGUAGES):
         new_cfg["ui"]["language"] = ""
+    if new_cfg["ui"].get("theme") not in ("", None, "light", "dark"):
+        new_cfg["ui"]["theme"] = ""
+    if not re.fullmatch(r"#[0-9a-fA-F]{6}", str(new_cfg["ui"].get("accent") or "")):
+        new_cfg["ui"]["accent"] = ""
     if _browser_lang(request):
         new_cfg["ui"]["lang_hint"] = _browser_lang(request)
     pw = new_cfg.get("ui", {}).get("password") or ""

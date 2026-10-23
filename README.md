@@ -40,6 +40,8 @@ for the Klipper printer, a spreadsheet or notes for your filament, and Home Assi
 - **Backup** and restore, import from another installation
 - **Notifications** with camera image via the Home Assistant app
 - **Smart plugs** from Home Assistant, with automatic switch-off after a print
+- **Timelapse** (optional): one image per layer, a video in the history, stored internally or on a NAS
+- **Design**: light or dark, accent colour of your choice
 - **Room climate** (optional): temperature, humidity, air quality and sensor battery of your print room
 - **System load** of the Home Assistant machine (CPU, RAM, storage, temperatures) at the bottom of the overview
 - **English and German**, any currency
@@ -107,6 +109,8 @@ docker compose up -d
 3D-PrintDash is then available at `http://<computer-ip>:8090`. Data is stored in the `./data` folder.
 For smart plugs, sensors and notifications from Home Assistant, set `HA_URL` (without `/api`) and
 `HA_TOKEN` (long-lived access token) in `docker-compose.yml`.
+To store timelapse videos on a NAS or another drive, mount it to `/media` in `docker-compose.yml`
+(e.g. `- /mnt/nas/3d-printing:/media`) and choose "Media folder" in the timelapse settings.
 
 ## Security
 
@@ -271,6 +275,41 @@ Under **Settings → Backup**:
 - **Import from another installation:** enter the address (e.g. `http://192.168.1.10:8090`) and password
   of a running installation – for example an older version – to fetch all data over the network. Access
   codes are not transferred; you will be told which ones to enter again.
+
+## Timelapse
+
+3D-PrintDash can record a timelapse of every print: one camera image per layer (every 30 s for
+printers that don't report layers), turned into an MP4 video when the print ends. Watch or download it
+in the **History** with 🎞 (the video window also has buttons to download or delete it). Under
+**Settings → Timelapse → "Manage videos"** you see all videos with their size and can play, download or
+delete them.
+
+1. Turn it on per printer under **Settings → Printers → "Record timelapse"**. Optionally choose which
+   camera to use, e.g. an external camera with a better view. It works in every control mode, also when
+   the print was started in Bambu Studio or the Bambu Handy app.
+   Without the tick, you can still record single prints: while printing, press **"🎞 Start timelapse"**
+   on the printer card (and stop it the same way).
+2. Under **Settings → Timelapse**, choose where the videos are saved:
+   - **Internal** – inside 3D-PrintDash
+   - **Media folder (/media)** – e.g. a NAS or USB drive. In Home Assistant go to **Settings → System →
+     Storage → "Add network storage"**, add the share with usage **"Media"** and enter its name as
+     sub folder (e.g. `NAS/3d-printing`). The videos then also show up in the Home Assistant media browser.
+   - **Share folder (/share)** – same, with usage "Share"
+3. Videos older than the set number of days are deleted automatically (0 = keep forever). The settings
+   show where videos go and how much space is left.
+
+If the chosen folder is not available (e.g. the NAS is offline), the video is saved internally instead.
+Videos inside 3D-PrintDash are not part of the backup.
+
+**Saving to a USB drive:** Home Assistant OS cannot use a USB drive directly as a media folder, only
+network storage. Connect the USB drive to your router or NAS instead (most routers and NAS systems share
+it on the network), add that share in Home Assistant as network storage with usage "Media" and choose
+"Media folder" in 3D-PrintDash. With Docker, simply mount the USB drive to `/media`.
+
+## Design
+
+Under **Settings → General → Design** you can choose light, dark or automatic (like your device) and
+an accent colour for buttons and progress bars. The change is previewed right away.
 
 ## Room climate
 

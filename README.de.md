@@ -41,6 +41,8 @@ Klipper-Drucker, eine Tabelle oder Notizen fürs Filament und Home Assistant fü
 - **Datensicherung** und Wiederherstellung, Übernahme von einer anderen Installation
 - **Benachrichtigungen** mit Kamerabild über die Home-Assistant-App
 - **Steckdosen** aus Home Assistant schalten, mit automatischem Ausschalten nach dem Druck
+- **Zeitraffer** (optional): ein Bild pro Schicht, ein Video in der Historie, intern oder auf einer NAS gespeichert
+- **Design**: hell oder dunkel, Akzentfarbe nach Wahl
 - **Raumklima** (optional): Temperatur, Luftfeuchtigkeit, Luftqualität und Sensor-Batterie deines Druckraums
 - **Systemauslastung** des Home-Assistant-Rechners (CPU, RAM, Speicher, Temperaturen) unten in der Übersicht
 - **Deutsch und Englisch**, Währung frei wählbar
@@ -108,6 +110,9 @@ docker compose up -d
 Danach ist 3D-PrintDash unter `http://<rechner-ip>:8090` erreichbar. Die Daten liegen im Ordner `./data`.
 Für Steckdosen, Sensoren und Benachrichtigungen aus Home Assistant in der `docker-compose.yml`
 `HA_URL` (ohne `/api`) und `HA_TOKEN` (langlebiges Zugriffstoken) eintragen.
+Um Zeitraffer-Videos auf einer NAS oder einem anderen Laufwerk zu speichern, dieses in der
+`docker-compose.yml` unter `/media` einbinden (z. B. `- /mnt/nas/3d-druck:/media`) und in den
+Zeitraffer-Einstellungen „Medien-Ordner“ wählen.
 
 ## Sicherheit
 
@@ -276,6 +281,43 @@ Unter **Einstellungen → Datensicherung**:
 - **Von anderer Installation übernehmen:** Adresse (z. B. `http://192.168.1.10:8090`) und Passwort einer
   laufenden Installation eingeben, z. B. einer älteren Version, und alle Daten übers Netzwerk holen.
   Zugangscodes werden nicht übertragen; du bekommst eine Liste, was neu einzutragen ist.
+
+## Zeitraffer
+
+3D-PrintDash kann von jedem Druck einen Zeitraffer aufnehmen: ein Kamerabild pro Schicht (alle 30 s bei
+Druckern, die keine Schichten melden), am Ende als MP4-Video. Ansehen oder herunterladen in der
+**Historie** mit 🎞 (im Video-Fenster gibt es auch Knöpfe zum Herunterladen und Löschen). Unter
+**Einstellungen → Zeitraffer → „Videos verwalten“** siehst du alle Videos mit Grösse und kannst sie
+abspielen, herunterladen oder löschen.
+
+1. Pro Drucker einschalten unter **Einstellungen → Drucker → „Zeitraffer aufnehmen“**. Optional wählen,
+   welche Kamera verwendet wird, z. B. eine externe Kamera mit besserem Blickwinkel. Das funktioniert in
+   jedem Steuerungsmodus, auch wenn der Druck in Bambu Studio oder der Bambu Handy App gestartet wurde.
+   Ohne Häkchen kannst du trotzdem einzelne Drucke aufnehmen: während des Drucks auf der Druckerkarte
+   **„🎞 Zeitraffer starten“** drücken (und genauso wieder stoppen).
+2. Unter **Einstellungen → Zeitraffer** festlegen, wo die Videos gespeichert werden:
+   - **Intern** – bei 3D-PrintDash
+   - **Medien-Ordner (/media)** – z. B. eine NAS oder USB-Festplatte. In Home Assistant unter
+     **Einstellungen → System → Speicher → „Netzwerkspeicher hinzufügen“** die Freigabe mit der Verwendung
+     **„Medien“** einbinden und ihren Namen als Unterordner eintragen (z. B. `NAS/3d-druck`). Die Videos
+     erscheinen dann auch im Medienbrowser von Home Assistant.
+   - **Freigabe-Ordner (/share)** – gleich, mit der Verwendung „Freigabe“
+3. Videos, die älter als die eingestellte Anzahl Tage sind, werden automatisch gelöscht (0 = nie). In den
+   Einstellungen siehst du, wohin die Videos gehen und wie viel Platz noch frei ist.
+
+Ist der gewählte Ordner nicht erreichbar (z. B. NAS ausgeschaltet), wird das Video intern gespeichert.
+Videos bei 3D-PrintDash sind nicht Teil der Datensicherung.
+
+**Auf einer USB-Festplatte speichern:** Home Assistant OS kann eine USB-Festplatte nicht direkt als
+Medien-Ordner verwenden, nur Netzwerkspeicher. Schliesse die USB-Festplatte darum am Router oder an der
+NAS an (die meisten Router und NAS geben sie im Netzwerk frei), binde diese Freigabe in Home Assistant als
+Netzwerkspeicher mit der Verwendung „Medien“ ein und wähle in 3D-PrintDash „Medien-Ordner“. Bei Docker
+die USB-Festplatte einfach unter `/media` einhängen.
+
+## Design
+
+Unter **Einstellungen → Allgemein → Design** wählst du hell, dunkel oder automatisch (wie das Gerät) und
+eine Akzentfarbe für Knöpfe und Fortschrittsbalken. Die Änderung siehst du sofort als Vorschau.
 
 ## Raumklima
 

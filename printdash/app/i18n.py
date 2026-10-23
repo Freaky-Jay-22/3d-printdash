@@ -145,6 +145,7 @@ MESSAGES = {
         "Nur Überwachung eingestellt – bitte über Bambu Handy oder Bambu Studio steuern":
             "Set to monitoring only – please control the printer with Bambu Handy or Bambu Studio",
         "Drucker ist nicht verbunden": "Printer is not connected",
+        "Gerade läuft kein Druck": "No print is running right now",
         "Datei zu gross": "File too large",
         "Upload zum Drucker fehlgeschlagen: {error}": "Upload to the printer failed: {error}",
         "Druckstart ist nur mit Developer Mode möglich. Bitte „Nur hochladen“ wählen und den Druck in Bambu Studio oder der Handy-App starten.":

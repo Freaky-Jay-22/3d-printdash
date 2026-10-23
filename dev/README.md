@@ -11,6 +11,7 @@ Alles läuft lokal, ohne Hardware. Die Fakes stellen nach:
 | `implicit_ftps.py` | Bambu-FTPS (implicit TLS) für die Vorschau aus der .3mf | 990 (`FTPS_PORT`) |
 | `frames/*.jpg` | Kamerabilder | – |
 | `ui_test_example.py` | Playwright-Beispiel (Screenshots + JS-Fehler sammeln) | – |
+| `make_test_app.py` | Baut die lokale Test-App «3D-PrintDash TEST» (eigener Slug, oranger Balken, gleiche Funktionen): `python3 make_test_app.py ../printdash <zielordner>` | – |
 
 ## Einrichten
 

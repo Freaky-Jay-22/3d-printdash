@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.3.0
+
+**English**
+- New: **Timelapse** (optional, per printer). One camera image per layer, an MP4 video when the print
+  ends, watch or download it in the history. Camera selectable. Videos can be stored internally, in the
+  Home Assistant media folder (e.g. a NAS added as network storage) or the share folder; old videos are
+  deleted after a set number of days. The settings show the storage path and free space.
+  Works in every control mode (also prints started in Bambu Studio / Handy). Single prints can be
+  recorded with a "Start timelapse" button on the printer card. Videos can be downloaded and deleted in
+  the video window and under Settings → Timelapse → "Manage videos". README explains how to use a USB drive.
+- New: **Design**. Light, dark or automatic, plus an accent colour of your choice (Settings → General).
+- The app now also has access to the Home Assistant share folder (for timelapse videos).
+
+**Deutsch**
+- Neu: **Zeitraffer** (optional, pro Drucker). Ein Kamerabild pro Schicht, am Ende ein MP4-Video,
+  ansehen oder herunterladen in der Historie. Kamera wählbar. Speicherort intern, im Medien-Ordner von
+  Home Assistant (z. B. eine als Netzwerkspeicher eingebundene NAS) oder im Freigabe-Ordner; alte Videos
+  werden nach einstellbaren Tagen gelöscht. Die Einstellungen zeigen Speicherort und freien Platz.
+  Funktioniert in jedem Steuerungsmodus (auch bei Drucken aus Bambu Studio / Handy). Einzelne Drucke
+  lassen sich mit dem Knopf „Zeitraffer starten“ auf der Druckerkarte aufnehmen. Videos lassen sich im
+  Video-Fenster und unter Einstellungen → Zeitraffer → „Videos verwalten“ herunterladen und löschen. Das README erklärt,
+  wie eine USB-Festplatte genutzt werden kann.
+- Neu: **Design**. Hell, dunkel oder automatisch, dazu eine Akzentfarbe nach Wahl (Einstellungen → Allgemein).
+- Die App hat jetzt auch Zugriff auf den Freigabe-Ordner von Home Assistant (für Zeitraffer-Videos).
+
 ## 0.2.1
 
 - **English:** A material added under Filament → Brands (e.g. PETG-GF) now appears under Settings →

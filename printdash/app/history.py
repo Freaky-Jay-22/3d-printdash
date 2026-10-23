@@ -32,7 +32,8 @@ def init():
             )""")
         cols = {r[1] for r in c.execute("PRAGMA table_info(jobs)").fetchall()}
         for col, typ in (("preview", "TEXT"), ("filament_g", "REAL"), ("filament_m", "REAL"),
-                         ("cost", "REAL"), ("materials", "TEXT"), ("deducted", "TEXT")):
+                         ("cost", "REAL"), ("materials", "TEXT"), ("deducted", "TEXT"),
+                         ("timelapse", "TEXT")):
             if col not in cols:
                 c.execute(f"ALTER TABLE jobs ADD COLUMN {col} {typ}")
 
@@ -96,6 +97,8 @@ def list_jobs(limit=300, printer_id=None):
     with _lock, _conn() as c:
         rows = [dict(r) for r in c.execute(sql, args).fetchall()]
     for r in rows:
+        # the browser only needs to know whether a video exists (not where it is stored)
+        r["timelapse"] = bool(r.get("timelapse") and os.path.exists(r["timelapse"]))
         for col in ("materials", "deducted"):
             try:
                 r[col] = json.loads(r[col]) if r.get(col) else []
@@ -115,11 +118,56 @@ def snapshot_path(job_id, column="snapshot"):
     return None
 
 
+def set_timelapse(job_id, path: str | None):
+    with _lock, _conn() as c:
+        c.execute("UPDATE jobs SET timelapse=? WHERE id=?", (path, job_id))
+
+
+def timelapse_path(job_id) -> str | None:
+    with _lock, _conn() as c:
+        row = c.execute("SELECT timelapse FROM jobs WHERE id=?", (job_id,)).fetchone()
+    path = row["timelapse"] if row else None
+    return path if path and os.path.exists(path) else None
+
+
+def delete_timelapse(job_id) -> bool:
+    """Delete the video of a print (wherever it is stored); the history entry stays."""
+    with _lock, _conn() as c:
+        row = c.execute("SELECT timelapse FROM jobs WHERE id=?", (job_id,)).fetchone()
+        path = row["timelapse"] if row else None
+        c.execute("UPDATE jobs SET timelapse=NULL WHERE id=?", (job_id,))
+    if path and os.path.exists(path):
+        os.remove(path)
+        return True
+    return False
+
+
+def timelapse_videos() -> list:
+    """All prints that have a video: id, printer, file, start, size."""
+    with _lock, _conn() as c:
+        rows = [dict(r) for r in c.execute(
+            "SELECT id, printer_name, filename, started_at, status, timelapse FROM jobs "
+            "WHERE timelapse IS NOT NULL ORDER BY id DESC").fetchall()]
+    out = []
+    for r in rows:
+        try:
+            r["size"] = os.path.getsize(r["timelapse"])
+        except OSError:
+            continue  # file is gone (deleted by hand or cleaned up)
+        r.pop("timelapse")
+        out.append(r)
+    return out
+
+
 def delete_job(job_id):
     for column in ("snapshot", "preview"):
         path = snapshot_path(job_id, column)
         if path:
             os.remove(path)
+    # a video inside 3D-PrintDash goes with the entry; videos on a NAS / media folder stay
+    video = timelapse_path(job_id)
+    if video and os.path.abspath(video).startswith(os.path.abspath(DATA_DIR) + os.sep):
+        os.remove(video)
     with _lock, _conn() as c:
         c.execute("DELETE FROM jobs WHERE id=?", (job_id,))
 

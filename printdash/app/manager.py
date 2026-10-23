@@ -5,7 +5,7 @@ import re
 import time
 
 from . import config as config_store
-from . import costs, filament, ha, history, i18n, maintenance, notify, rooms, system
+from . import costs, filament, ha, history, i18n, maintenance, notify, rooms, system, timelapse
 from .i18n import t
 from .camera import CameraHub
 from .printers import ACTIVE_STATES, create
@@ -48,6 +48,9 @@ class Manager:
         self.power = {}          # printer id -> {entity, on, available, error}
         self.ams_sensors = {}    # printer id -> {temp, hum, bat} from Home Assistant
         self.room_data = {}      # room id -> sensor values from Home Assistant (rooms.py)
+        self.timelapse = timelapse.Recorder()
+        self._tl_busy = set()    # printer ids with a timelapse image being taken right now
+        self._tl_clean_at = 0.0
         self._auto_off = {}      # printer id -> time the last print ended
         self.job_meta = {}       # printer id -> {key, thumb, thumb_type, weight_g, length_m, at}
         self.pending_meta = {}   # printer id -> {stem, meta} for files sent from 3D-PrintDash
@@ -161,6 +164,9 @@ class Manager:
             st["ams_hum_max"] = self._pcfg(printer.id).get("ams_hum_max") or 30
             st["has_ams"] = self._pcfg(printer.id).get("has_ams")  # None = not set (older settings)
             st["maintenance"] = self.maint.get(printer.id, [])
+            job = self._jobs.get(printer.id)
+            st["timelapse"] = ({"active": self._timelapse_on(printer.id, job), "frames": self.timelapse.count(job),
+                                "auto": self._timelapse_auto(printer.id)} if job is not None else None)
             if st["power"] and st["power"].get("on") is False:
                 st["state"] = "off"
             printers.append(st)
@@ -171,6 +177,8 @@ class Manager:
             "ha": ha.available(),
             "costs": costs.settings(self.cfg),
             "language": (self.cfg.get("ui") or {}).get("language") or "",
+            "theme": {"mode": (self.cfg.get("ui") or {}).get("theme") or "",
+                      "accent": (self.cfg.get("ui") or {}).get("accent") or ""},
             "filament_low_g": float((self.cfg.get("filament") or {}).get("low_warn_g") or 0),
             "system": system.snapshot() if (self.cfg.get("ui") or {}).get("show_system", True) else None,
             "rooms": rooms.view(self.cfg.get("rooms") or [], self.room_data),
@@ -253,6 +261,13 @@ class Manager:
                         await self._refresh_ams_sensors(pid)
                     except Exception:  # noqa: BLE001
                         log.exception("AMS sensors")
+            if time.time() - self._tl_clean_at > 3600:  # old timelapse videos, once an hour
+                self._tl_clean_at = time.time()
+                try:
+                    running = {str(j) for j in self._jobs.values()}
+                    await asyncio.to_thread(timelapse.cleanup, self.cfg, running)
+                except Exception:  # noqa: BLE001
+                    log.exception("Timelapse cleanup")
             if tick % 2 == 0:  # room sensors every 10 s
                 try:
                     self.room_data = await rooms.read(self.cfg.get("rooms") or [])
@@ -373,6 +388,8 @@ class Manager:
                     self._jobs[pid] = history.start_job(pid, printer.name, cur["filename"], started)
             elif open_job:
                 history.end_job(open_job["id"], END_STATUS.get(state, "unknown"))
+                if self.timelapse.count(open_job["id"]):
+                    asyncio.create_task(self._encode_timelapse(printer, open_job["id"], open_job.get("filename")))
             # remember current HMS so old warnings don't trigger on startup
             self._hms_seen[pid] = {h["code"] for h in cur["hms"]}
             return
@@ -390,6 +407,7 @@ class Manager:
             for f in cur.get("filaments") or []:
                 if f.get("active"):
                     self._job_slots.setdefault(pid, set()).add(str(f.get("slot")))
+            self._maybe_timelapse(printer, cur)
         elif job is not None:
             del self._jobs[pid]
             self._auto_off[pid] = time.time()
@@ -461,6 +479,56 @@ class Manager:
             parts.append(t("Fortschritt: {progress} %", progress=st["progress"]))
         return "\n".join(parts)
 
+    # -- timelapse -------------------------------------------------------------
+    def _timelapse_auto(self, pid) -> bool:
+        return bool(self._pcfg(pid).get("timelapse"))
+
+    def _timelapse_on(self, pid, job=None) -> bool:
+        """Recording for this print: chosen by hand, otherwise the printer setting."""
+        job = self._jobs.get(pid) if job is None else job
+        mode = self.timelapse.mode(job) if job is not None else None
+        return mode == "on" if mode else self._timelapse_auto(pid)
+
+    def set_timelapse(self, pid, on: bool) -> dict:
+        """Start / stop the timelapse of the running print by hand."""
+        job = self._jobs.get(pid)
+        if job is None:
+            raise ValueError(t("Gerade läuft kein Druck"))
+        self.timelapse.set_mode(job, on)
+        return {"active": on, "frames": self.timelapse.count(job)}
+
+    def _maybe_timelapse(self, printer, cur):
+        pid, job = printer.id, self._jobs.get(printer.id)
+        if job is None or cur["state"] != "printing" or pid in self._tl_busy or not self._timelapse_on(pid, job):
+            return
+        if not self.timelapse.due(job, cur.get("layer")):
+            return
+        self._tl_busy.add(pid)
+        asyncio.create_task(self._take_timelapse_image(printer, job, cur.get("layer")))
+
+    async def _take_timelapse_image(self, printer, job, layer):
+        try:
+            want = (self._pcfg(printer.id).get("timelapse_camera") or "").strip()
+            img = None
+            if want and want in self.cameras:
+                img = await self.cameras[want].snapshot(timeout=10)
+            if not img:
+                img = await self.printer_snapshot(printer.id)
+            if img:
+                await asyncio.to_thread(self.timelapse.add, job, layer, img)
+        except Exception:  # noqa: BLE001
+            log.exception("%s: timelapse image", printer.name)
+        finally:
+            self._tl_busy.discard(printer.id)
+
+    async def _encode_timelapse(self, printer, job_id, filename):
+        try:
+            path = await timelapse.encode(self.cfg, self.timelapse, job_id, printer.name, filename or "")
+            if path:
+                await asyncio.to_thread(history.set_timelapse, job_id, path)
+        except Exception:  # noqa: BLE001
+            log.exception("%s: timelapse video", printer.name)
+
     async def _finish_job(self, printer, job_id, st, slots=None):
         status = END_STATUS.get(st["state"], "unknown")
         image = await self.printer_snapshot(printer.id)
@@ -491,6 +559,9 @@ class Manager:
             # failed without an error text (otherwise the error was already reported)
             await notify.send(self.cfg, t("❌ {printer}: fehlgeschlagen", printer=printer.name),
                               self._describe(st, t("Der Druck ist fehlgeschlagen oder wurde abgebrochen.")), image)
+        # the video comes last: it may take a minute and must not delay the notification
+        if self.timelapse.count(job_id):
+            await self._encode_timelapse(printer, job_id, st.get("filename"))
 
     # -- maintenance reminders ------------------------------------------------
     MAINT_NAMES = {"clean": "Drucker reinigen", "lube": "Schmieren"}

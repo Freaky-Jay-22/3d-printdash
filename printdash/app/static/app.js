@@ -206,13 +206,46 @@ function openImageOverlay(src, title) {
   if (fs && !fs.contains(ov)) fs.append(ov);
   $("#cam-overlay-title").textContent = title;
   const box = $(".overlay-cam", ov);
-  box.querySelectorAll("img, .cam-msg").forEach((n) => n.remove());
+  box.querySelectorAll("img, video, .cam-msg").forEach((n) => n.remove());
   box.prepend(el("img", { src, alt: "" }));
+  $("#cam-overlay-actions").hidden = true;
   ov.hidden = false;
+}
+// jobId: with it, the overlay offers download and delete; onDeleted refreshes the list behind it
+function openVideoOverlay(src, title, jobId = null, onDeleted = null) {
+  const ov = $("#cam-overlay");
+  const fs = document.fullscreenElement;
+  if (fs && !fs.contains(ov)) fs.append(ov);
+  $("#cam-overlay-title").textContent = title;
+  const box = $(".overlay-cam", ov);
+  box.querySelectorAll("img, video, .cam-msg").forEach((n) => n.remove());
+  box.prepend(el("video", { src, controls: true, autoplay: true, muted: true, playsinline: true, loop: true }));
+  const actions = $("#cam-overlay-actions");
+  actions.hidden = jobId == null;
+  if (jobId != null) {
+    actions.replaceChildren(
+      el("a", { class: "btn", href: `${src}?download=1`, download: "" }, t("⬇ Herunterladen")),
+      el("button", { class: "btn danger", onclick: async () => {
+        if (!(await deleteTimelapse(jobId))) return;
+        closeOverlay();
+        onDeleted?.();
+      } }, t("🗑 Zeitraffer löschen")));
+  }
+  ov.hidden = false;
+}
+async function deleteTimelapse(jobId) {
+  if (!confirm(t("Dieses Zeitraffer-Video löschen? Der Eintrag in der Historie bleibt."))) return false;
+  try {
+    await api(`api/history/${jobId}/timelapse`, { method: "DELETE" });
+    toast(t("Zeitraffer gelöscht"), "ok");
+    return true;
+  } catch (e) { toast(e.message, "bad"); return false; }
 }
 function closeOverlay() {
   const ov = $("#cam-overlay");
   detachCameras(ov);
+  ov.querySelectorAll("video").forEach((v) => { v.pause(); v.remove(); });
+  $("#cam-overlay-actions").hidden = true;
   ov.hidden = true;
 }
 $("#cam-overlay").addEventListener("click", (e) => {
@@ -238,6 +271,7 @@ function showView(name) {
   if (name === "history") loadHistory();
   if (name === "filament") loadFilament();
   if (name === "settings") loadSettings();
+  if (name !== "settings" && themePreview) { themePreview = false; applyTheme(lastState?.theme); }
 }
 $$(".tabs button").forEach((b) => b.addEventListener("click", () => showView(b.dataset.view)));
 document.addEventListener("click", (e) => {
@@ -260,8 +294,10 @@ async function poll() {
   try {
     lastState = await api("api/state");
     syncLanguage(lastState.language);
+    if (!themePreview) applyTheme(lastState.theme);
     renderSysbar();
     renderPasswordBanner();
+    renderTestBanner();
     if (currentView === "cameras" && camerasStateKey() !== camerasKey) renderCameras();
     if (detail) renderDetail();
     else if (currentView === "overview") renderOverview();
@@ -269,6 +305,39 @@ async function poll() {
     /* keep last state; next poll will retry */
   } finally {
     setTimeout(poll, 2000);
+  }
+}
+
+/* ---------- design: light / dark and accent colour ---------- */
+const ACCENTS = [["", "Blau (Standard)"], ["#22c55e", "Grün"], ["#f97316", "Orange"], ["#a855f7", "Lila"],
+  ["#ef4444", "Rot"], ["#ec4899", "Pink"], ["#eab308", "Gelb"], ["#14b8a6", "Türkis"]];
+let themePreview = false;   // settings open with unsaved design changes
+function applyTheme(theme) {
+  const root = document.documentElement;
+  const mode = theme?.mode || "";
+  if (mode) root.dataset.theme = mode; else delete root.dataset.theme;
+  const acc = /^#[0-9a-f]{6}$/i.test(theme?.accent || "") ? theme.accent : "";
+  if (acc) {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(acc.slice(i, i + 2), 16) / 255);
+    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    root.style.setProperty("--accent", acc);
+    root.style.setProperty("--accent-ink", lum > 0.55 ? "#111827" : "#ffffff");
+  } else {
+    root.style.removeProperty("--accent");
+    root.style.removeProperty("--accent-ink");
+  }
+  try { localStorage.setItem("pd-theme", JSON.stringify({ mode, accent: acc })); } catch { /* private mode */ }
+}
+try { applyTheme(JSON.parse(localStorage.getItem("pd-theme") || "null")); } catch { /* ignore */ }
+
+/* ---------- test build: orange bar so it is never mistaken for the real one ---------- */
+function renderTestBanner() {
+  const b = $("#test-banner");
+  const on = !!lastState?.test_build;
+  b.hidden = !on;
+  if (on && !b.childElementCount) {
+    b.append(el("b", {}, t("🧪 TESTVERSION")), el("span", {}, t("Zum Ausprobieren neuer Funktionen. Die normale Version währenddessen stoppen.")));
+    document.title = `TEST · ${document.title}`;
   }
 }
 
@@ -539,6 +608,22 @@ function updateCard(c, p) {
   if (p.cmd_message) c.alerts.append(el("div", { class: "alert warn" }, p.cmd_message));
   const dueTasks = (p.maintenance || []).filter((m) => m.due);
   if (dueTasks.length) c.alerts.append(el("div", { class: "alert warn" }, t("🔧 Wartung fällig: {0}", dueTasks.map((m) => maintName(m.id)).join(", "))));
+  if (p.timelapse && ACTIVE.includes(p.state)) {
+    const tl = p.timelapse;
+    const toggle = (on) => async (e) => {
+      e.stopPropagation();
+      e.target.disabled = true;
+      try {
+        await api(`api/printers/${encodeURIComponent(p.id)}/timelapse`, { method: "POST", json: { on } });
+        toast(on ? t("Zeitraffer gestartet") : t("Zeitraffer gestoppt – das Video entsteht am Druckende"), "ok");
+      } catch (err) { toast(err.message, "bad"); e.target.disabled = false; }
+    };
+    c.alerts.append(el("div", { class: "tl-note" },
+      tl.active ? t("🎞 Zeitraffer läuft · {0}", tn(tl.frames, "{0} Bild", "{0} Bilder"))
+        : (tl.frames ? t("🎞 Zeitraffer gestoppt · {0}", tn(tl.frames, "{0} Bild", "{0} Bilder")) : ""),
+      el("button", { class: "btn mini", onclick: toggle(!tl.active) },
+        tl.active ? t("⏹ Zeitraffer stoppen") : t("🎞 Zeitraffer starten"))));
+  }
 
   // actions
   const key = `${p.state}|${p.online}|${p.light}|${p.power?.on}|${p.power?.available}`;
@@ -834,6 +919,10 @@ async function loadHistory() {
         j.error ? el("div", { class: "err" }, j.error) : null),
       el("div", { class: "right" },
         el("span", { class: `badge ${j.status === "running" ? "printing" : j.status}` }, STATE_LABEL[j.status] || j.status),
+        j.timelapse ? el("button", { class: "icon-btn", title: t("Zeitraffer ansehen"), "aria-label": t("Zeitraffer ansehen"),
+          onclick: () => openVideoOverlay(`api/history/${j.id}/timelapse.mp4`, j.filename || "", j.id, loadHistory) }, "🎞") : null,
+        j.timelapse ? el("a", { class: "icon-btn", href: `api/history/${j.id}/timelapse.mp4?download=1`, download: "",
+          title: t("Zeitraffer herunterladen"), "aria-label": t("Zeitraffer herunterladen") }, "⬇") : null,
         el("button", {
           class: "icon-btn", title: t("Eintrag löschen"), "aria-label": t("Eintrag löschen"),
           onclick: async () => {
@@ -976,6 +1065,7 @@ function renderSettings() {
   cSec.append(el("div", { class: "row-btns" },
     el("button", { class: "btn", onclick: () => { draft.cameras.push({ id: "", name: "Kamera", url: "", printer_id: "", snapshot: false }); renderSettings(); } }, t("+ Kamera"))));
   root.append(cSec);
+  root.append(timelapseSection());
 
   /* room climate */
   if (!draft.rooms) draft.rooms = [];
@@ -1028,7 +1118,8 @@ function renderSettings() {
       field("Sprache / Language", draft.ui, "language", { options: [["", t("Automatisch (Browsersprache)")],
         ...Object.entries(LANGUAGES)], hint: t("Gilt auch für Benachrichtigungen.") }),
       field(t("Systemauslastung unten in der Übersicht anzeigen"), draft.ui, "show_system", { type: "checkbox",
-        hint: t("CPU, RAM, freier Speicher und Temperaturen des Rechners, auf dem 3D-PrintDash läuft.") })));
+        hint: t("CPU, RAM, freier Speicher und Temperaturen des Rechners, auf dem 3D-PrintDash läuft.") })),
+    designFields());
   root.append(g);
   root.append(backupSection());
 
@@ -1235,6 +1326,113 @@ function bambuControlFields(p) {
   return wrap;
 }
 
+/* design: light / dark and accent colour, previewed right away */
+function designFields() {
+  const ui = draft.ui;
+  ui.theme = ui.theme || "";
+  ui.accent = ui.accent || "";
+  const preview = () => { themePreview = true; applyTheme({ mode: ui.theme, accent: ui.accent }); };
+  const known = ACCENTS.some(([v]) => v === ui.accent);
+  const sel = el("select", {}, ...ACCENTS.map(([v, l]) => el("option", { value: v }, t(l))),
+    el("option", { value: "custom" }, t("Eigene Farbe …")));
+  sel.value = known ? ui.accent : "custom";
+  const picker = el("input", { type: "color", value: ui.accent || "#38bdf8", hidden: known, "aria-label": t("Eigene Farbe …") });
+  const swatch = el("span", { class: "swatch" });
+  const upd = () => { swatch.style.background = ui.accent || "var(--accent)"; };
+  sel.addEventListener("change", () => {
+    picker.hidden = sel.value !== "custom";
+    ui.accent = sel.value === "custom" ? picker.value : sel.value;
+    upd(); preview();
+  });
+  picker.addEventListener("input", () => { ui.accent = picker.value; upd(); preview(); });
+  upd();
+  return el("div", { class: "fields", style: "margin-top:12px" },
+    el("div", { class: "field wide" }, el("h4", { class: "sub-head" }, t("Design"))),
+    field(t("Hell oder dunkel"), ui, "theme", { options: [["", t("Automatisch (wie das Gerät)")], ["light", t("Hell")], ["dark", t("Dunkel")]],
+      onchange: preview }),
+    el("label", { class: "field" }, t("Akzentfarbe"), el("div", { class: "accent-row" }, sel, picker, swatch),
+      el("small", {}, t("Für Knöpfe, Fortschrittsbalken und Markierungen. Vorschau sofort, gilt nach dem Speichern."))));
+}
+
+/* timelapse: storage location, kept days, speed */
+function timelapseSection() {
+  const tl = draft.timelapse = { storage: "data", folder: "3d-printdash/timelapse", fps: 25, keep_days: 30, ...(draft.timelapse || {}) };
+  const info = el("div", { class: "tl-info note" });
+  const folderWrap = el("div", { class: "field-wrap" });
+  let timer = null;
+  const check = () => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      info.textContent = t("Prüfe Speicherort …");
+      try {
+        const r = await api(`api/timelapse/storage?storage=${encodeURIComponent(tl.storage)}&folder=${encodeURIComponent(tl.folder || "")}`);
+        const parts = [];
+        if (r.writable) {
+          parts.push(t("✓ Videos werden gespeichert in {0}", r.path));
+          if (r.free != null) parts.push(t("{0} frei", fmtBytes(r.free)));
+          if (r.videos) {
+            const mb = r.videos_bytes / 1024 ** 2;
+            parts.push(tn(r.videos, "{0} Video", "{0} Videos") + ` (${mb >= 1024 ? fmtBytes(r.videos_bytes) : `${Math.max(1, Math.round(mb))} MB`})`);
+          }
+          info.className = "tl-info note ok";
+        } else {
+          parts.push(r.root_exists ? t("✗ In {0} kann nicht geschrieben werden.", r.path)
+            : t("✗ Diesen Ordner gibt es hier nicht. Videos werden dann intern gespeichert."));
+          info.className = "tl-info note bad";
+        }
+        info.textContent = parts.join(" · ");
+      } catch (e) { info.textContent = e.message; }
+    }, 400);
+  };
+  const renderFolder = () => {
+    folderWrap.replaceChildren(...(tl.storage === "data" ? [] : [field(t("Unterordner"), tl, "folder", {
+      placeholder: "3d-printdash/timelapse", onchange: check,
+      hint: tl.storage === "media" ? t("Unter /media, z. B. „NAS/3d-druck“ für eine eingebundene NAS") : t("Unter /share") })]));
+    folderWrap.querySelector("input")?.addEventListener("input", check);
+  };
+  renderFolder();
+  check();
+  // list of all videos: play, download, delete
+  const list = el("div", { class: "tl-videos", hidden: true });
+  const listBtn = el("button", { class: "btn", type: "button" }, t("🎞 Videos verwalten"));
+  const loadList = async () => {
+    let vids = [];
+    try { vids = await api("api/timelapse/videos"); } catch (e) { toast(e.message, "bad"); return; }
+    const total = vids.reduce((s, v) => s + v.size, 0);
+    const size = (b) => (b >= 1024 ** 3 ? fmtBytes(b) : `${Math.max(1, Math.round(b / 1024 ** 2))} MB`);
+    list.replaceChildren(
+      el("div", { class: "note" }, vids.length ? `${tn(vids.length, "{0} Video", "{0} Videos")} · ${size(total)}` : t("Noch keine Zeitraffer-Videos.")),
+      ...vids.map((v) => {
+        const src = `api/history/${v.id}/timelapse.mp4`;
+        return el("div", { class: "tl-video" },
+          el("div", { class: "tl-video-text" },
+            el("b", { title: v.filename || "" }, v.filename || t("Unbekannte Datei")),
+            el("span", { class: "note" }, [v.printer_name, fmtDate(v.started_at), size(v.size)].filter(Boolean).join(" · "))),
+          el("button", { class: "icon-btn", title: t("Zeitraffer ansehen"), "aria-label": t("Zeitraffer ansehen"),
+            onclick: () => openVideoOverlay(src, v.filename || "", v.id, () => { loadList(); check(); }) }, "▶"),
+          el("a", { class: "icon-btn", href: `${src}?download=1`, download: "", title: t("Zeitraffer herunterladen"),
+            "aria-label": t("Zeitraffer herunterladen") }, "⬇"),
+          el("button", { class: "icon-btn", title: t("🗑 Zeitraffer löschen"), "aria-label": t("🗑 Zeitraffer löschen"),
+            onclick: async () => { if (await deleteTimelapse(v.id)) { loadList(); check(); } } }, "🗑"));
+      }));
+  };
+  listBtn.addEventListener("click", () => { list.hidden = !list.hidden; if (!list.hidden) loadList(); });
+  return el("div", { class: "settings-section" },
+    el("h3", {}, t("Zeitraffer")),
+    el("p", { class: "hint" }, t("Einschalten pro Drucker oben bei den Druckern oder für einzelne Drucke auf der Druckerkarte. Hier legst du fest, wo die Videos gespeichert werden. Für eine NAS: in Home Assistant unter Einstellungen → System → Speicher → „Netzwerkspeicher hinzufügen“ die Freigabe mit der Verwendung „Medien“ einbinden und hier „Medien-Ordner“ wählen. Eine USB-Festplatte schliesst du dafür am Router oder an der NAS an und bindest sie gleich ein (Home Assistant kann USB-Speicher nicht direkt als Medien-Ordner verwenden).")),
+    el("div", { class: "fields" },
+      field(t("Speicherort"), tl, "storage", { options: [
+        ["data", t("Intern")],
+        ["media", t("Medien-Ordner (/media)")],
+        ["share", t("Freigabe-Ordner (/share)")]], onchange: () => { renderFolder(); check(); } }),
+      folderWrap,
+      field(t("Videos löschen nach (Tagen)"), tl, "keep_days", { type: "number", placeholder: "30", hint: t("0 = nie löschen") }),
+      field(t("Bilder pro Sekunde im Video"), tl, "fps", { type: "number", placeholder: "25", hint: t("Höher = kürzeres, schnelleres Video") })),
+    info,
+    el("div", { class: "row-btns" }, listBtn),
+    list);
+}
+
 function roomItem(room) {
   const wrap = el("div", { class: "item" });
   const render = () => {
@@ -1346,6 +1544,16 @@ function printerItem(p) {
     field(t("Schmieren alle (Druckstunden)"), p, "maint_lube_h", { type: "number" }),
     field(t("Schmieren alle (Tage)"), p, "maint_lube_d", { type: "number" }),
   ];
+  const timelapseFields = () => {
+    const cams = (lastState?.cameras || []).filter((c) => p.id && c.printer_id === p.id);
+    const opts = [["", t("Automatisch (erste Kamera des Druckers)")], ...cams.map((c) => [c.id, c.name])];
+    if (p.timelapse_camera && !cams.some((c) => c.id === p.timelapse_camera)) opts.push([p.timelapse_camera, p.timelapse_camera]);
+    return [
+      field(t("Zeitraffer aufnehmen"), p, "timelapse", { type: "checkbox",
+        hint: t("Bei jedem Druck automatisch: ein Bild pro Schicht, am Ende ein Video in der Historie. Ohne Häkchen lässt sich ein Zeitraffer für einzelne Drucke auf der Druckerkarte starten.") }),
+      field(t("Kamera für den Zeitraffer"), p, "timelapse_camera", { options: opts }),
+    ];
+  };
   const powerFields = () => {
     const opts = [["", t("– keine –")], ...haEntities.entities.map((e) => [e.entity_id, `${e.name} (${e.entity_id})`])];
     if (p.power_entity && !haEntities.entities.some((e) => e.entity_id === p.power_entity)) opts.push([p.power_entity, p.power_entity]);
@@ -1367,7 +1575,7 @@ function printerItem(p) {
         ["rtsp", t("Video-Stream (X1, H2)")], ["jpeg", t("Einzelbilder (P1, A1)")]] }),
       field(t("AMS vorhanden"), p, "has_ams", { type: "checkbox",
         hint: t("Legt im Filament-Tab einen Lagerort für dieses AMS an. Spulen, die beim Ausschalten des Druckers im AMS stecken, werden dorthin verschoben. Nimmst du eine Spule bei laufendem Drucker heraus, kommt sie an ihren alten Ort zurück.") }),
-      ...powerFields(), ...maintFields());
+      ...powerFields(), ...timelapseFields(), ...maintFields());
     item.append(amsSensorFields(p));
     item.append(bambuControlFields(p));
     item.append(el("p", { class: "note" }, t("Für die Kamera muss am Drucker „LAN Only Liveview“ (Einstellungen → Netzwerk) eingeschaltet sein.")));
@@ -1390,7 +1598,7 @@ function printerItem(p) {
       field(t("Licht aus: eigener G-Code"), p, "light_off_gcode", { placeholder: t("optional") }),
       ...powerFields(),
       field(t("Kamera-URL (optional)"), p, "camera_url", { placeholder: t("leer = automatisch von Moonraker"), wide: true }),
-      ...maintFields());
+      ...timelapseFields(), ...maintFields());
     item.append(el("div", { class: "row-btns" },
       el("button", { class: "btn", onclick: async () => {
         result.className = "probe-result"; result.textContent = t("Teste …");
@@ -1427,6 +1635,8 @@ async function saveSettings(notifyUser) {
     if (notifyUser) { toast(t("Gespeichert"), "ok"); renderSettings(); }
     lastState = await api("api/state");
     syncLanguage(lastState.language);
+    themePreview = false;
+    applyTheme(lastState.theme);
   } catch (e) {
     toast(e.message, "bad");
     throw e;

@@ -20,6 +20,8 @@ DEFAULT_CONFIG = {
     "cameras": [],
     # optional room sensors from Home Assistant, shown at the top of the overview (see rooms.py)
     "rooms": [],
+    # timelapse videos: where they are stored (see timelapse.py); on/off is a printer setting
+    "timelapse": {"storage": "data", "folder": "3d-printdash/timelapse", "fps": 25, "keep_days": 30},
     "notify": {
         "on_error": True,
         "on_finish": False,
@@ -41,7 +43,8 @@ DEFAULT_CONFIG = {
                       "ABS-CF": 45, "ASA": 30, "ASA-CF": 45, "TPU": 40},
     },
     # language "" = browser language; show_system = load bar at the bottom of the overview
-    "ui": {"password": "", "language": "", "show_system": True},
+    # theme "" = like the device, "light" / "dark"; accent "" = standard blue or a colour like "#22c55e"
+    "ui": {"password": "", "language": "", "show_system": True, "theme": "", "accent": ""},
 }
 
 _lock = threading.Lock()
