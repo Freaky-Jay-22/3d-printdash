@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.2
+
+**English**
+- Fix: after an update the browser sometimes kept showing the old interface from its cache (e.g. new
+  settings were missing). The interface files now carry a version mark, so every update loads right away.
+
+**Deutsch**
+- Behoben: Nach einem Update zeigte der Browser manchmal noch die alte Oberfläche aus dem Cache (z. B.
+  fehlten neue Einstellungen). Die Dateien der Oberfläche tragen jetzt eine Versionsmarke, jedes Update
+  wird sofort geladen.
+
 ## 0.3.1
 
 **English**

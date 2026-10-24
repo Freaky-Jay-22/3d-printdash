@@ -2,6 +2,7 @@
 import asyncio
 import time
 import base64
+import hashlib
 import logging
 import os
 import re
@@ -30,6 +31,29 @@ log = logging.getLogger("printdash")
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 INGRESS_IP = "172.30.32.2"  # Home Assistant ingress proxy
 manager = Manager()
+
+
+def _asset_version() -> str:
+    """Short fingerprint of the interface files. It changes with every update, so the
+    browser loads the new app.js/style.css instead of an old copy from its cache."""
+    h = hashlib.sha1()
+    for root, _, files in sorted(os.walk(STATIC_DIR)):
+        for name in sorted(files):
+            if name.endswith((".js", ".css")):
+                with open(os.path.join(root, name), "rb") as fh:
+                    h.update(name.encode() + fh.read())
+    return h.hexdigest()[:10]
+
+
+ASSET_VERSION = _asset_version()
+_ASSET_RE = re.compile(r'((?:src|href)="static/[^"?]+\.(?:js|css))"')
+
+
+def _page(name: str) -> Response:
+    """HTML page with versioned links to the interface files (never cached itself)."""
+    with open(os.path.join(STATIC_DIR, name), encoding="utf-8") as fh:
+        html = _ASSET_RE.sub(lambda m: f'{m.group(1)}?v={ASSET_VERSION}"', fh.read())
+    return Response(html, media_type="text/html", headers={"Cache-Control": "no-cache"})
 
 
 @asynccontextmanager
@@ -101,7 +125,7 @@ async def auth_middleware(request: Request, call_next):
 
 @app.get("/login")
 async def login_page():
-    return FileResponse(os.path.join(STATIC_DIR, "login.html"), headers={"Cache-Control": "no-cache"})
+    return _page("login.html")
 
 
 @app.post("/api/login")
@@ -149,8 +173,7 @@ def _camera(cid):
 # -- pages & state -----------------------------------------------------------
 @app.get("/")
 async def index():
-    return FileResponse(os.path.join(STATIC_DIR, "index.html"),
-                        headers={"Cache-Control": "no-cache"})
+    return _page("index.html")
 
 
 @app.get("/api/state")
