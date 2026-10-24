@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.4
+
+**English**
+- Docker: new option `PRINTDASH_NO_PASSWORD_WARNING=1` hides the "no password" warning bar, for
+  installations where the port is only reachable from the same machine (e.g. behind hass_ingress).
+
+**Deutsch**
+- Docker: Neue Option `PRINTDASH_NO_PASSWORD_WARNING=1` blendet den Warnbalken «ohne Passwort» aus, für
+  Installationen, deren Port nur vom eigenen Rechner erreichbar ist (z. B. hinter hass_ingress).
+
 ## 0.3.3
 
 **English**

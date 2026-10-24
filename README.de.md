@@ -140,6 +140,9 @@ ingress:
 Nutzt du es nur über die Seitenleiste, mach den Port nur auf dem eigenen Rechner erreichbar: In der
 `docker-compose.yml` die Port-Zeile auf `- "127.0.0.1:8090:8090"` ändern. Sonst unbedingt in
 3D-PrintDash ein Passwort setzen (Einstellungen → Allgemein), denn der Port ist im ganzen Netzwerk offen.
+Ist der Port auf `127.0.0.1` beschränkt, lässt sich der Warnbalken «ohne Passwort» ausblenden: in der
+`docker-compose.yml` unter `environment:` die Zeile `PRINTDASH_NO_PASSWORD_WARNING=1` ergänzen. Nur machen,
+wenn der Port wirklich von keinem anderen Gerät erreichbar ist.
 
 *Danke an den Reddit-Nutzer geo38 für den Tipp.*
 

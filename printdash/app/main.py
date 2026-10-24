@@ -180,7 +180,10 @@ async def index():
 async def get_state(request: Request):
     st = manager.state()
     st["auth"] = {"enabled": bool(_password_hash()),
-                  "ingress": bool(request.client and request.client.host == INGRESS_IP)}
+                  "ingress": bool(request.client and request.client.host == INGRESS_IP),
+                  # PRINTDASH_NO_PASSWORD_WARNING=1: port only reachable from the same machine
+                  # (e.g. behind hass_ingress), the warning bar is not needed
+                  "warn": os.environ.get("PRINTDASH_NO_PASSWORD_WARNING", "").lower() not in ("1", "true", "yes")}
     # test build (dev/make_test_app.py sets PRINTDASH_TEST=1): orange bar in the interface
     st["test_build"] = bool(os.environ.get("PRINTDASH_TEST"))
     return st

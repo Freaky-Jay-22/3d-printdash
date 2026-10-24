@@ -18,3 +18,5 @@ services:
       # optional, for smart plugs, sensors and notifications from Home Assistant:
       # - HA_URL=http://192.168.1.10:8123
       # - HA_TOKEN=<long-lived access token>
+      # optional, hide the "no password" warning when the port is bound to 127.0.0.1 (hass_ingress):
+      # - PRINTDASH_NO_PASSWORD_WARNING=1

@@ -345,7 +345,7 @@ function renderTestBanner() {
 function renderPasswordBanner() {
   const b = $("#nopw-banner");
   const a = lastState?.auth;
-  const show = !!a && !a.enabled && !a.ingress;
+  const show = !!a && !a.enabled && !a.ingress && a.warn !== false;
   b.hidden = !show;
   if (show && !b.childElementCount) {
     b.append(el("span", {}, t("⚠️ Direkter Zugriff ohne Passwort: Jedes Gerät in deinem Netzwerk kann Drucker steuern und Kameras sehen.")),

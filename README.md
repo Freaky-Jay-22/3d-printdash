@@ -138,6 +138,9 @@ ingress:
 If you only use it through the sidebar, make the port reachable from the same machine only by changing
 the port line in `docker-compose.yml` to `- "127.0.0.1:8090:8090"`. Otherwise set a password in
 3D-PrintDash (Settings → General), because the port is open to your whole network.
+With the port bound to `127.0.0.1`, you can hide the "no password" warning bar by adding
+`PRINTDASH_NO_PASSWORD_WARNING=1` under `environment:` in `docker-compose.yml`. Only do this if the port
+is really not reachable from other devices.
 
 *Thanks to Reddit user geo38 for this tip.*
 
