@@ -112,6 +112,35 @@ For smart plugs, sensors and notifications from Home Assistant, set `HA_URL` (wi
 To store timelapse videos on a NAS or another drive, mount it to `/media` in `docker-compose.yml`
 (e.g. `- /mnt/nas/3d-printing:/media`) and choose "Media folder" in the timelapse settings.
 
+### Home Assistant without apps (Container / Core)
+
+If your Home Assistant installation has no apps (e.g. Home Assistant Container or Core), run
+3D-PrintDash with Docker Compose as described above. You can still get it into the Home Assistant
+sidebar with the HACS integration [hass_ingress](https://github.com/lovelylain/hass_ingress):
+
+1. Install **hass_ingress** via HACS and restart Home Assistant.
+2. Add this to your `configuration.yaml` and restart Home Assistant again:
+
+```yaml
+ingress:
+  printdash:
+    title: 3D-PrintDash
+    icon: mdi:printer-3d
+    require_admin: true
+    url: http://127.0.0.1:8090
+    index: '#overview'
+```
+
+   Use the address where 3D-PrintDash is reachable from Home Assistant. `127.0.0.1` works when both run
+   on the same machine and Home Assistant uses the host network.
+3. **3D-PrintDash** now appears in the sidebar (for admins only, because of `require_admin: true`).
+
+If you only use it through the sidebar, make the port reachable from the same machine only by changing
+the port line in `docker-compose.yml` to `- "127.0.0.1:8090:8090"`. Otherwise set a password in
+3D-PrintDash (Settings → General), because the port is open to your whole network.
+
+*Thanks to Reddit user geo38 for this tip.*
+
 ## Security
 
 - In the Home Assistant sidebar, 3D-PrintDash is protected by your Home Assistant login.

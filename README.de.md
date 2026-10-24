@@ -114,6 +114,35 @@ Um Zeitraffer-Videos auf einer NAS oder einem anderen Laufwerk zu speichern, die
 `docker-compose.yml` unter `/media` einbinden (z. B. `- /mnt/nas/3d-druck:/media`) und in den
 Zeitraffer-Einstellungen „Medien-Ordner“ wählen.
 
+### Home Assistant ohne Apps (Container / Core)
+
+Hat deine Home-Assistant-Installation keine Apps (z. B. Home Assistant Container oder Core), startest du
+3D-PrintDash wie oben beschrieben mit Docker Compose. In die Seitenleiste von Home Assistant bekommst du
+es trotzdem, mit der HACS-Integration [hass_ingress](https://github.com/lovelylain/hass_ingress):
+
+1. **hass_ingress** über HACS installieren und Home Assistant neu starten.
+2. Das hier in die `configuration.yaml` eintragen und Home Assistant nochmals neu starten:
+
+```yaml
+ingress:
+  printdash:
+    title: 3D-PrintDash
+    icon: mdi:printer-3d
+    require_admin: true
+    url: http://127.0.0.1:8090
+    index: '#overview'
+```
+
+   Als Adresse die nehmen, unter der Home Assistant 3D-PrintDash erreicht. `127.0.0.1` passt, wenn beide
+   auf demselben Rechner laufen und Home Assistant das Host-Netzwerk nutzt.
+3. **3D-PrintDash** erscheint jetzt in der Seitenleiste (wegen `require_admin: true` nur für Admins).
+
+Nutzt du es nur über die Seitenleiste, mach den Port nur auf dem eigenen Rechner erreichbar: In der
+`docker-compose.yml` die Port-Zeile auf `- "127.0.0.1:8090:8090"` ändern. Sonst unbedingt in
+3D-PrintDash ein Passwort setzen (Einstellungen → Allgemein), denn der Port ist im ganzen Netzwerk offen.
+
+*Danke an den Reddit-Nutzer geo38 für den Tipp.*
+
 ## Sicherheit
 
 - Über die Seitenleiste von Home Assistant ist 3D-PrintDash durch deinen Home-Assistant-Login geschützt.

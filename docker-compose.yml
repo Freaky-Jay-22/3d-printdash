@@ -8,6 +8,7 @@ services:
     container_name: printdash
     restart: unless-stopped
     ports:
+      # only via the Home Assistant sidebar (hass_ingress, see README): use "127.0.0.1:8090:8090"
       - "8090:8090"
     volumes:
       - ./data:/data
