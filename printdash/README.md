@@ -123,6 +123,17 @@ A normal project file without G-code cannot be printed.
 - **Own sensor (Home Assistant):** e.g. a separate thermometer inside the AMS. Only its values are shown
   then. Humidity above the limit and battery below 20 % turn red.
 
+##### Camera problems
+
+Each Bambu printer has a **camera connection** setting (Settings → Printers → Camera):
+
+| Setting | When to use |
+|---|---|
+| **Default** | Works for most printers. |
+| **Compatibility mode** | The camera starts slowly or lags behind (e.g. P2S, or a weak computer/VM). Starts faster, keeps the connection open for 60 s instead of reconnecting, keeps the delay low and needs less CPU (max. 960 px, 5 images per second). |
+
+The log (Settings → Apps → 3D-PrintDash → Log) shows how long each camera took to show its first image.
+
 ##### Control of Bambu printers
 
 Current Bambu firmware only accepts control commands (pause, stop, light, starting a print) from other
@@ -432,6 +443,17 @@ exportieren“** wählen. Eine normale Projektdatei ohne G-Code kann nicht gedru
 - **Werte vom AMS selbst:** Temperatur und Feuchte direkt vom Drucker (je nach Firmware Feuchte nur als Stufe 1–5).
 - **Eigener Sensor (Home Assistant):** z. B. ein separates Thermometer im AMS. Dann werden nur dessen
   Werte angezeigt. Feuchte über dem Grenzwert und Batterie unter 20 % werden rot.
+
+##### Probleme mit der Kamera
+
+Jeder Bambu-Drucker hat die Einstellung **Kamera-Verbindung** (Einstellungen → Drucker → Kamera):
+
+| Einstellung | Wann verwenden |
+|---|---|
+| **Standard** | Funktioniert bei den meisten Druckern. |
+| **Kompatibilitätsmodus** | Die Kamera startet langsam oder hängt nach (z. B. P2S oder ein schwacher Rechner/VM). Startet schneller, hält die Verbindung 60 s offen statt neu zu verbinden, hält die Verzögerung klein und braucht weniger Rechenleistung (max. 960 px, 5 Bilder pro Sekunde). |
+
+Im Log (Einstellungen → Apps → 3D-PrintDash → Log) steht, wie lange jede Kamera bis zum ersten Bild gebraucht hat.
 
 ##### Steuerung bei Bambu-Druckern
 

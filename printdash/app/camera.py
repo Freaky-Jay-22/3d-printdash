@@ -20,6 +20,11 @@ log = logging.getLogger("printdash.camera")
 
 SOI, EOI = b"\xff\xd8", b"\xff\xd9"
 IDLE_STOP_SECONDS = 15
+# compatibility mode (setting per Bambu printer, for cameras that start slowly or lag):
+# keep the stream open longer, start faster, keep the delay low, less CPU load
+COMPAT_IDLE_STOP_SECONDS = 60
+COMPAT_MAX_WIDTH = 960
+COMPAT_MAX_FPS = 5
 
 
 class CameraHub:
@@ -44,6 +49,12 @@ class CameraHub:
         # camera producing images (Snapmaker U1 stock firmware)
         self.keepalive = cam.get("keepalive")
         self.auth = cam.get("auth")  # Bambu P1/A1 camera: LAN access code
+        self.compat = bool(cam.get("compat"))
+        if self.compat:
+            self.fps = min(self.fps, COMPAT_MAX_FPS)
+            self.width = min(self.width, COMPAT_MAX_WIDTH)
+        self._attempt_at = 0.0   # start of the current connection attempt
+        self._first_logged = False
 
     def info(self) -> dict:
         return {
@@ -100,9 +111,14 @@ class CameraHub:
 
     # -- worker ----------------------------------------------------------
     def _should_run(self) -> bool:
-        return self._viewers > 0 or time.time() - self._last_viewer < IDLE_STOP_SECONDS
+        idle = COMPAT_IDLE_STOP_SECONDS if self.compat else IDLE_STOP_SECONDS
+        return self._viewers > 0 or time.time() - self._last_viewer < idle
 
     async def _publish(self, frame: bytes):
+        if not self._first_logged and self._attempt_at:
+            self._first_logged = True
+            log.info("Camera %s: first image after %.1f s%s", self.name, time.time() - self._attempt_at,
+                     " (compatibility mode)" if self.compat else "")
         async with self._cond:
             self.frame = frame
             self.frame_at = time.time()
@@ -113,6 +129,8 @@ class CameraHub:
     async def _run(self):
         try:
             while self._should_run():
+                self._attempt_at = time.time()
+                self._first_logged = False
                 try:
                     if self.mode == "snapshot":
                         await self._run_snapshot()
@@ -200,8 +218,13 @@ class CameraHub:
     def _ffmpeg_args(self) -> list:
         args = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin",
                 "-fflags", "nobuffer", "-flags", "low_delay"]
+        if self.compat:
+            # start after a short look at the stream instead of up to 5 s, no reordering delay
+            args += ["-probesize", "500000", "-analyzeduration", "1000000", "-max_delay", "0"]
         if self.url.startswith(("rtsp://", "rtsps://")):
             args += ["-rtsp_transport", "tcp", "-timeout", "10000000"]
+            if self.compat:
+                args += ["-reorder_queue_size", "0"]
         elif self.url.startswith(("http://", "https://")):
             args += ["-reconnect", "1", "-reconnect_streamed", "1", "-rw_timeout", "10000000"]
         args += ["-i", self.url, "-an",

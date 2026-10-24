@@ -1477,6 +1477,26 @@ function roomItem(room) {
   return wrap;
 }
 
+/* Bambu camera: directly from the printer, normally or in compatibility mode */
+function cameraSourceFields(p) {
+  const wrap = el("div", { class: "ams-box" });
+  p.camera_source = p.camera_source === "compat" ? "compat" : "direct";
+  const render = () => {
+    const fields = el("div", { class: "fields" },
+      field(t("Kamera-Verbindung"), p, "camera_source", { onchange: render, options: [
+        ["direct", t("Standard")],
+        ["compat", t("Kompatibilitätsmodus")]] }),
+      field(t("Kamera-Art"), p, "camera_type", { options: [["", t("Automatisch (nach Seriennummer)")],
+        ["rtsp", t("Video-Stream (X1, H2)")], ["jpeg", t("Einzelbilder (P1, A1)")]] }));
+    const note = p.camera_source === "compat"
+      ? t("Für Kameras, die langsam starten oder verzögert sind (z. B. P2S): schnellerer Start, Verbindung bleibt 60 s offen, geringe Verzögerung, weniger Rechenlast (max. 960 px, 5 Bilder/s).")
+      : t("Bei Problemen (Kamera startet langsam, Bild hängt nach) den Kompatibilitätsmodus probieren.");
+    wrap.replaceChildren(el("h4", { class: "sub-head" }, t("Kamera")), fields, el("p", { class: "note" }, note));
+  };
+  render();
+  return wrap;
+}
+
 function amsSensorFields(p) {
   const wrap = el("div", { class: "ams-box" });
   if (!p.ams_source) p.ams_source = (p.ams_temp_entity || p.ams_hum_entity || p.ams_bat_entity) ? "ha" : "ams";
@@ -1571,11 +1591,10 @@ function printerItem(p) {
       field(t("Seriennummer"), p, "serial", { placeholder: "00M00A000000000", hint: t("Am Drucker: Einstellungen → Gerät") }),
       field(t("LAN-Zugangscode"), p, "access_code", { type: "password", hint: t("Am Drucker: Einstellungen → Netzwerk (WLAN)") }),
       field(t("Eingebaute Kamera verwenden"), p, "camera", { type: "checkbox", hint: "" }),
-      field(t("Kamera-Art"), p, "camera_type", { options: [["", t("Automatisch (nach Seriennummer)")],
-        ["rtsp", t("Video-Stream (X1, H2)")], ["jpeg", t("Einzelbilder (P1, A1)")]] }),
       field(t("AMS vorhanden"), p, "has_ams", { type: "checkbox",
         hint: t("Legt im Filament-Tab einen Lagerort für dieses AMS an. Spulen, die beim Ausschalten des Druckers im AMS stecken, werden dorthin verschoben. Nimmst du eine Spule bei laufendem Drucker heraus, kommt sie an ihren alten Ort zurück.") }),
       ...powerFields(), ...timelapseFields(), ...maintFields());
+    item.append(cameraSourceFields(p));
     item.append(amsSensorFields(p));
     item.append(bambuControlFields(p));
     item.append(el("p", { class: "note" }, t("Für die Kamera muss am Drucker „LAN Only Liveview“ (Einstellungen → Netzwerk) eingeschaltet sein.")));

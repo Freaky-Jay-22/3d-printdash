@@ -179,6 +179,17 @@ exportieren“** wählen. Eine normale Projektdatei ohne G-Code kann nicht gedru
 - **Eigener Sensor (Home Assistant):** z. B. ein separates Thermometer im AMS. Dann werden nur dessen
   Werte angezeigt. Feuchte über dem Grenzwert und Batterie unter 20 % werden rot.
 
+#### Probleme mit der Kamera
+
+Jeder Bambu-Drucker hat die Einstellung **Kamera-Verbindung** (Einstellungen → Drucker → Kamera):
+
+| Einstellung | Wann verwenden |
+|---|---|
+| **Standard** | Funktioniert bei den meisten Druckern. |
+| **Kompatibilitätsmodus** | Die Kamera startet langsam oder hängt nach (z. B. P2S oder ein schwacher Rechner/VM). Startet schneller, hält die Verbindung 60 s offen statt neu zu verbinden, hält die Verzögerung klein und braucht weniger Rechenleistung (max. 960 px, 5 Bilder pro Sekunde). |
+
+Im Log (Einstellungen → Apps → 3D-PrintDash → Log) steht, wie lange jede Kamera bis zum ersten Bild gebraucht hat.
+
 #### Steuerung bei Bambu-Druckern
 
 Aktuelle Bambu-Firmware nimmt Steuerbefehle (Pause, Stopp, Licht, Druckstart) von anderen Programmen

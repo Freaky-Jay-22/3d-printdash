@@ -127,7 +127,8 @@ class Manager:
         for cam_id in list(self.cameras):
             hub = self.cameras[cam_id]
             src = wanted.get(cam_id)
-            if not src or src["url"] != hub.url or src["mode"] != hub.mode:
+            if not src or src["url"] != hub.url or src["mode"] != hub.mode \
+                    or bool(src.get("compat")) != hub.compat:
                 asyncio.create_task(hub.stop())
                 del self.cameras[cam_id]
         for cam_id, src in wanted.items():

@@ -125,6 +125,11 @@ Object.assign(I18N.en, {
   "Die Drucker werden direkt im Netzwerk angesprochen. Home-Assistant-Integrationen werden nicht benötigt.":
     "Printers are contacted directly on your network. No Home Assistant integrations are needed.",
   "Externe Kameras": "External cameras",
+  "Kamera-Verbindung": "Camera connection",
+  "Standard": "Default",
+  "Kompatibilitätsmodus": "Compatibility mode",
+  "Für Kameras, die langsam starten oder verzögert sind (z. B. P2S): schnellerer Start, Verbindung bleibt 60 s offen, geringe Verzögerung, weniger Rechenlast (max. 960 px, 5 Bilder/s).": "For cameras that start slowly or lag behind (e.g. P2S): faster start, connection stays open for 60 s, low delay, less CPU load (max. 960 px, 5 images/s).",
+  "Bei Problemen (Kamera startet langsam, Bild hängt nach) den Kompatibilitätsmodus probieren.": "If you have problems (camera starts slowly, image lags behind), try the compatibility mode.",
   "⬇ Herunterladen": "⬇ Download",
   "🗑 Zeitraffer löschen": "🗑 Delete timelapse",
   "Dieses Zeitraffer-Video löschen? Der Eintrag in der Historie bleibt.": "Delete this timelapse video? The history entry stays.",

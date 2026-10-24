@@ -77,6 +77,15 @@ MODEL_BY_PREFIX = {
 }
 
 
+def product_model_name(product_name: str) -> str | None:
+    """'Bambu Lab X1 Carbon' -> 'X1C', 'Bambu Lab P2S' -> 'P2S', 'Bambu Lab A1 mini' -> 'A1 mini'"""
+    name = str(product_name or "").strip()
+    if name.lower().startswith("bambu lab "):
+        name = name[10:].strip()
+    special = {"X1 CARBON": "X1C", "X1-CARBON": "X1C"}
+    return special.get(name.upper(), name) or None
+
+
 def model_family(model: str | None) -> str:
     """x1 | p1 | a1 | h2 – used for the wiki links and the camera type."""
     m = (model or "").upper()
@@ -217,8 +226,14 @@ class BambuPrinter(BasePrinter):
         self.last_msg = time.time()
         info = payload.get("info")
         if isinstance(info, dict) and info.get("command") == "get_version":
-            self.versions = {m.get("name"): m.get("sw_ver") for m in info.get("module") or []
-                             if isinstance(m, dict) and m.get("sw_ver")}
+            modules = [m for m in info.get("module") or [] if isinstance(m, dict)]
+            self.versions = {m.get("name"): m.get("sw_ver") for m in modules if m.get("sw_ver")}
+            # newer firmware names the printer model, e.g. "Bambu Lab P2S" (no serial number needed)
+            for m in modules:
+                name = str(m.get("product_name") or "")
+                if name.lower().startswith("bambu lab "):
+                    self.product_model = product_model_name(name)
+                    break
         with self._lock:
             for section in ("print", "system"):
                 part = payload.get(section)
@@ -611,7 +626,8 @@ class BambuPrinter(BasePrinter):
 
     @property
     def model(self) -> str | None:
-        return MODEL_BY_PREFIX.get(self.serial[:3].upper()) if self.serial else None
+        by_serial = MODEL_BY_PREFIX.get(self.serial[:3].upper()) if self.serial else None
+        return by_serial or getattr(self, "product_model", None)
 
     def camera_kind(self) -> str:
         """rtsp (X1, H2: video stream on port 322) or jpeg (P1, A1: still images on port 6000)."""
@@ -620,9 +636,17 @@ class BambuPrinter(BasePrinter):
             return kind
         return "jpeg" if model_family(self.model) in ("p1", "a1") else "rtsp"
 
+    def camera_source(self) -> str:
+        """direct (default) | compat (compatibility mode for slow or lagging cameras)"""
+        src = self.cfg.get("camera_source") or "direct"
+        return src if src in ("direct", "compat") else "direct"
+
     def camera_sources(self) -> list:
-        if not self.cfg.get("camera", True) or not self.host or not self.access_code:
+        if not self.cfg.get("camera", True):
             return []
+        if not self.host or not self.access_code:
+            return []
+        compat = self.camera_source() == "compat"
         if self.camera_kind() == "jpeg":
             return [{
                 "id": f"{self.id}-cam",
@@ -631,6 +655,7 @@ class BambuPrinter(BasePrinter):
                 "auth": self.access_code,
                 "mode": "bambu_jpeg",
                 "printer_id": self.id,
+                "compat": compat,
             }]
         return [{
             "id": f"{self.id}-cam",
@@ -638,4 +663,5 @@ class BambuPrinter(BasePrinter):
             "url": f"rtsps://bblp:{self.access_code}@{self.host}:322/streaming/live/1",
             "mode": "ffmpeg",
             "printer_id": self.id,
+            "compat": compat,
         }]

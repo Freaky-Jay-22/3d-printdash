@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.1
+
+**English**
+- New: **compatibility mode** for the camera of Bambu printers (Settings → Printers → Camera →
+  Camera connection) for cameras that start slowly or lag behind (e.g. P2S, weak VM): faster start,
+  connection stays open for 60 s, low delay, less CPU load (max. 960 px, 5 images/s). Default is unchanged.
+- The log shows how long each camera took to show its first image (helps with camera problems).
+- Newer Bambu printers (e.g. P2S) are recognised by the model name they report, no serial number needed.
+
+**Deutsch**
+- Neu: **Kompatibilitätsmodus** für die Kamera von Bambu-Druckern (Einstellungen → Drucker → Kamera →
+  Kamera-Verbindung) für Kameras, die langsam starten oder nachhängen (z. B. P2S, schwache VM): schnellerer
+  Start, Verbindung bleibt 60 s offen, geringe Verzögerung, weniger Rechenlast (max. 960 px, 5 Bilder/s).
+  Der Standard bleibt unverändert.
+- Im Log steht, wie lange jede Kamera bis zum ersten Bild gebraucht hat (hilft bei Kamera-Problemen).
+- Neuere Bambu-Drucker (z. B. P2S) werden am gemeldeten Modellnamen erkannt, ohne Seriennummer.
+
 ## 0.3.0
 
 **English**
