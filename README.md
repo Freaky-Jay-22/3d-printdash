@@ -185,9 +185,14 @@ Each Bambu printer has a **camera connection** setting (Settings → Printers �
 | Setting | When to use |
 |---|---|
 | **Default** | Works for most printers. |
-| **Compatibility mode** | The camera starts slowly or lags behind (e.g. P2S, or a weak computer/VM). Starts faster, keeps the connection open for 60 s instead of reconnecting, keeps the delay low and needs less CPU (max. 960 px, 5 images per second). |
+| **Compatibility mode** | The camera starts slowly or lags behind (e.g. P2S, or a weak computer/VM). Ignores broken timestamps from the printer, starts faster, keeps the connection open for 60 s instead of reconnecting, keeps the delay low and needs less CPU (max. 960 px, 5 images per second). |
 
 The log (Settings → Apps → 3D-PrintDash → Log) shows how long each camera took to show its first image.
+For video cameras it also writes a **measurement** line about 30 s after the start, e.g.
+`measurement: 1920x1080 h264, received 15.0 images/s, full image every 10.0 s, timestamp jumps: 0, stream ready after 0.6 s, first image after 7.6 s`.
+A picture can only be shown once the printer sends a full image, so if full images are rare, the camera
+takes that long to start. "Timestamp jumps" means the printer sends broken timing information,
+which makes the picture stall or start late; compatibility mode ignores it. Please add this line when reporting camera problems (it contains nothing personal).
 
 #### Control of Bambu printers
 

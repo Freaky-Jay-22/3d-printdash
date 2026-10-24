@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.3.3
+
+**English**
+- The log now contains a **camera measurement** about 30 s after a video camera starts: image size,
+  images per second sent by the printer, how often a full image arrives and how long the start took.
+  Helps to find the cause of slow cameras (e.g. P2S). Costs almost no CPU, nothing personal is logged.
+- Camera compatibility mode now ignores the printer's timestamps and uses the arrival time instead. Some
+  printers (e.g. P2S) send broken timestamps, which made the picture start late, stall or update slowly.
+
+**Deutsch**
+- Im Log steht jetzt etwa 30 s nach dem Start einer Video-Kamera eine **Kamera-Messung**: Bildgrösse,
+  Bilder pro Sekunde vom Drucker, wie oft ein vollständiges Bild kommt und wie lange der Start gedauert
+  hat. Hilft, die Ursache langsamer Kameras zu finden (z. B. P2S). Kostet kaum Rechenleistung, es wird
+  nichts Persönliches protokolliert.
+- Der Kamera-Kompatibilitätsmodus ignoriert jetzt die Zeitangaben des Druckers und nimmt die Ankunftszeit
+  der Bilder. Manche Drucker (z. B. P2S) schicken fehlerhafte Zeitangaben, dadurch startete das Bild spät,
+  blieb hängen oder aktualisierte sich nur langsam.
+
 ## 0.3.2
 
 **English**

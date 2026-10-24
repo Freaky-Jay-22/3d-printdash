@@ -1,6 +1,6 @@
 # Home Assistant app (add-on) definition
 name: 3D-PrintDash
-version: "0.3.2"
+version: "0.3.3"
 slug: printdash
 description: Local dashboard for your 3D printers (Bambu Lab LAN, Klipper/Moonraker)
 url: https://github.com/Freaky-Jay-22/3d-printdash
