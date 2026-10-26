@@ -551,6 +551,9 @@ class MoonrakerPrinter(BasePrinter):
                 "url": url,
                 "mode": mode,
                 "printer_id": self.id,
+                # webcam settings in Moonraker (the same Fluidd and Mainsail use)
+                "orient": {"rotate": cam.get("rotation") or 0,
+                           "flip_h": cam.get("flip_horizontal"), "flip_v": cam.get("flip_vertical")},
             })
         return out
 

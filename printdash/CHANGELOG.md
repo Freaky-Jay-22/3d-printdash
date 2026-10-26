@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.5
+
+**English**
+- New: **rotate and mirror the camera image** (Settings → Rotate and mirror camera image) for every camera,
+  built-in or external: 90°, 180°, 270° and/or mirrored horizontally or vertically. Also applies to
+  notification images and timelapses. "Automatic" uses the printer's own setting; for Klipper printers
+  the webcam setting from Fluidd/Mainsail is taken over automatically.
+
+**Deutsch**
+- Neu: **Kamerabild drehen und spiegeln** (Einstellungen → Kamerabild drehen und spiegeln) für jede Kamera,
+  eingebaut oder extern: 90°, 180°, 270° und/oder horizontal bzw. vertikal gespiegelt. Gilt auch für
+  Benachrichtigungsbilder und Zeitraffer. «Automatisch» übernimmt die Einstellung des Druckers; bei
+  Klipper-Druckern wird die Webcam-Einstellung aus Fluidd/Mainsail automatisch übernommen.
+
 ## 0.3.4
 
 **English**

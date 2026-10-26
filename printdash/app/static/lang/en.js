@@ -605,4 +605,21 @@ Object.assign(I18N.en, {
   "System": "System",
   "Kommt an diesen Ort zurück, wenn du die Spule bei laufendem Drucker aus dem AMS nimmst.":
     "Goes back to this location when you take the spool out of the AMS while the printer is running.",
+  // camera orientation
+  "unverändert": "unchanged",
+  "{0}° gedreht": "rotated {0}°",
+  "horizontal gespiegelt": "mirrored horizontally",
+  "vertikal gespiegelt": "mirrored vertically",
+  "Kamerabild drehen und spiegeln": "Rotate and mirror camera image",
+  "Für Kameras, die gedreht oder kopfüber montiert sind. Gilt auch für Benachrichtigungsbilder und Zeitraffer. „Automatisch“ übernimmt die Einstellung des Druckers (bei Klipper die Webcam-Einstellung aus Fluidd/Mainsail).": "For cameras that are mounted rotated or upside down. Also applies to notification images and timelapses. \"Automatic\" uses the printer's own setting (for Klipper the webcam setting from Fluidd/Mainsail).",
+  "Noch keine Kameras vorhanden.": "No cameras yet.",
+  "Ausrichtung": "Orientation",
+  "Automatisch ({0})": "Automatic ({0})",
+  "Eigene Einstellung": "Custom",
+  "Drehen": "Rotate",
+  "90° im Uhrzeigersinn": "90° clockwise",
+  "270° im Uhrzeigersinn": "270° clockwise",
+  "Horizontal spiegeln": "Mirror horizontally",
+  "Vertikal spiegeln": "Mirror vertically",
+  "Neue externe Kameras erscheinen hier nach dem Speichern.": "New external cameras show up here after saving.",
 });

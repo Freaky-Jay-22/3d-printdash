@@ -6,6 +6,7 @@ snapshot is needed) and is stopped again shortly after the last viewer leaves.
 """
 import asyncio
 import collections
+import io
 import logging
 import re
 import ssl
@@ -34,6 +35,68 @@ _SHOWINFO = re.compile(r"\bn:\s*\d+.*?pts_time:\s*([-\d.]+).*?iskey:\s*(\d)")
 _STREAM = re.compile(r"Stream #\d+:\d+.*?Video:\s*(\w+)[^,]*,.*?(\d{2,5}x\d{2,5})(?:.*?([\d.]+) fps)?")
 _LEVEL = re.compile(r"\[(?:info|verbose)\]\s")
 _measure_ok: bool | None = None
+
+ROTATIONS = (0, 90, 180, 270)   # clockwise, like Fluidd / Mainsail
+
+
+def clean_orient(raw) -> dict | None:
+    """{rotate, flip_h, flip_v} or None when the image stays as it is."""
+    if not isinstance(raw, dict):
+        return None
+    try:
+        rotate = int(raw.get("rotate") or 0) % 360
+    except (TypeError, ValueError):
+        rotate = 0
+    out = {"rotate": rotate if rotate in ROTATIONS else 0,
+           "flip_h": bool(raw.get("flip_h")), "flip_v": bool(raw.get("flip_v"))}
+    return out if (out["rotate"] or out["flip_h"] or out["flip_v"]) else None
+
+
+def orient_filters(orient: dict | None) -> list:
+    """ffmpeg filters: mirror first, then rotate clockwise (same order as Fluidd / Mainsail)."""
+    if not orient:
+        return []
+    out = []
+    if orient.get("flip_h"):
+        out.append("hflip")
+    if orient.get("flip_v"):
+        out.append("vflip")
+    out += {90: ["transpose=1"], 180: ["hflip", "vflip"], 270: ["transpose=2"]}.get(orient.get("rotate"), [])
+    return out
+
+
+_pil_warned = False
+
+
+def orient_jpeg(data: bytes, orient: dict | None) -> bytes:
+    """Mirror / rotate a single JPEG image (cameras that deliver still images)."""
+    global _pil_warned
+    if not orient:
+        return data
+    try:
+        from PIL import Image
+    except ImportError:
+        if not _pil_warned:
+            _pil_warned = True
+            log.warning("Pillow is missing: still image cameras cannot be rotated or mirrored")
+        return data
+    try:
+        img = Image.open(io.BytesIO(data))
+        img.load()
+        if orient.get("flip_h"):
+            img = img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+        if orient.get("flip_v"):
+            img = img.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+        # Pillow rotates counter-clockwise
+        turn = {90: Image.Transpose.ROTATE_270, 180: Image.Transpose.ROTATE_180,
+                270: Image.Transpose.ROTATE_90}.get(orient.get("rotate"))
+        if turn is not None:
+            img = img.transpose(turn)
+        out = io.BytesIO()
+        img.convert("RGB").save(out, "JPEG", quality=85)
+        return out.getvalue()
+    except Exception:  # noqa: BLE001 – a broken image is shown as it came
+        return data
 
 
 def measure_available() -> bool:
@@ -148,6 +211,8 @@ class CameraHub:
         self.keepalive = cam.get("keepalive")
         self.auth = cam.get("auth")  # Bambu P1/A1 camera: LAN access code
         self.compat = bool(cam.get("compat"))
+        self.orient = clean_orient(cam.get("orient"))  # mirror / rotate the image
+        self.auto_orient = clean_orient(cam.get("auto_orient"))  # what the printer itself reports
         if self.compat:
             self.fps = min(self.fps, COMPAT_MAX_FPS)
             self.width = min(self.width, COMPAT_MAX_WIDTH)
@@ -159,6 +224,8 @@ class CameraHub:
             "id": self.id, "name": self.name, "printer_id": self.printer_id,
             "active": self._task is not None and not self._task.done(),
             "error": self.error,
+            "orient": self.orient,
+            "auto_orient": self.auto_orient,
         }
 
     # -- viewers ---------------------------------------------------------
@@ -270,11 +337,11 @@ class CameraHub:
                 if r.content != last_image:
                     last_image = r.content
                     same_count = 0
-                    await self._publish(r.content)
+                    await self._publish(await self._oriented(r.content))
                 else:
                     same_count += 1
                     if self.frame is None or same_count == 1:
-                        await self._publish(r.content)
+                        await self._publish(await self._oriented(r.content))
                     if same_count * interval > 30:
                         self.error = t("Bild aktualisiert sich nicht mehr")
                 await asyncio.sleep(interval)
@@ -305,13 +372,18 @@ class CameraHub:
                     raise RuntimeError(t("Antwort ist kein JPEG-Bild"))
                 frame = await asyncio.wait_for(reader.readexactly(size), 15)
                 if frame.startswith(SOI) and frame.endswith(EOI):
-                    await self._publish(frame)
+                    await self._publish(await self._oriented(frame))
         finally:
             writer.close()
             try:
                 await writer.wait_closed()
             except Exception:  # noqa: BLE001
                 pass
+
+    async def _oriented(self, frame: bytes) -> bytes:
+        if not self.orient:
+            return frame
+        return await asyncio.to_thread(orient_jpeg, frame, self.orient)
 
     def _measuring(self) -> bool:
         return self.url.startswith(("rtsp://", "rtsps://")) and measure_available()
@@ -333,7 +405,8 @@ class CameraHub:
         elif self.url.startswith(("http://", "https://")):
             args += ["-reconnect", "1", "-reconnect_streamed", "1", "-rw_timeout", "10000000"]
         args += ["-i", self.url, "-an",
-                 "-vf", ("showinfo=checksum=0," if measure else "") + f"scale='min({self.width},iw)':-2",
+                 "-vf", ",".join((["showinfo=checksum=0"] if measure else []) + orient_filters(self.orient)
+                                 + [f"scale='min({self.width},iw)':-2"]),
                  "-r", str(self.fps), "-q:v", "6", "-f", "mjpeg", "pipe:1"]
         return args
 

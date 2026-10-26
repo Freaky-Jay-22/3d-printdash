@@ -1065,6 +1065,7 @@ function renderSettings() {
   cSec.append(el("div", { class: "row-btns" },
     el("button", { class: "btn", onclick: () => { draft.cameras.push({ id: "", name: "Kamera", url: "", printer_id: "", snapshot: false }); renderSettings(); } }, t("+ Kamera"))));
   root.append(cSec);
+  root.append(orientSection());
   root.append(timelapseSection());
 
   /* room climate */
@@ -1478,6 +1479,59 @@ function roomItem(room) {
 }
 
 /* Bambu camera: directly from the printer, normally or in compatibility mode */
+/* mirror / rotate the image of each camera (printer cameras and external ones) */
+function orientText(o) {
+  if (!o) return t("unverändert");
+  const parts = [];
+  if (o.rotate) parts.push(t("{0}° gedreht", o.rotate));
+  if (o.flip_h) parts.push(t("horizontal gespiegelt"));
+  if (o.flip_v) parts.push(t("vertikal gespiegelt"));
+  return parts.join(", ");
+}
+
+function orientSection() {
+  const sec = el("div", { class: "settings-section" },
+    el("h3", {}, t("Kamerabild drehen und spiegeln")),
+    el("p", { class: "hint" }, t("Für Kameras, die gedreht oder kopfüber montiert sind. Gilt auch für Benachrichtigungsbilder und Zeitraffer. „Automatisch“ übernimmt die Einstellung des Druckers (bei Klipper die Webcam-Einstellung aus Fluidd/Mainsail).")));
+  const cams = lastState?.cameras || [];
+  if (!cams.length) {
+    sec.append(el("p", { class: "note" }, t("Noch keine Kameras vorhanden.")));
+    return sec;
+  }
+  if (!draft.camera_orient || typeof draft.camera_orient !== "object") draft.camera_orient = {};
+  for (const cam of cams) {
+    const box = el("div", { class: "item" });
+    const render = () => {
+      const o = draft.camera_orient[cam.id];
+      const state = { mode: o?.mode === "manual" ? "manual" : "auto" };
+      const fields = el("div", { class: "fields" },
+        field(t("Ausrichtung"), state, "mode", {
+          options: [["auto", t("Automatisch ({0})", orientText(cam.auto_orient))], ["manual", t("Eigene Einstellung")]],
+          onchange: () => {
+            if (state.mode === "manual") {
+              draft.camera_orient[cam.id] = { mode: "manual", rotate: cam.auto_orient?.rotate || 0,
+                flip_h: !!cam.auto_orient?.flip_h, flip_v: !!cam.auto_orient?.flip_v };
+            } else {
+              delete draft.camera_orient[cam.id];
+            }
+            render();
+          } }));
+      if (state.mode === "manual") {
+        fields.append(
+          field(t("Drehen"), o, "rotate", { options: [["0", "0°"], ["90", t("90° im Uhrzeigersinn")],
+            ["180", "180°"], ["270", t("270° im Uhrzeigersinn")]] }),
+          field(t("Horizontal spiegeln"), o, "flip_h", { type: "checkbox" }),
+          field(t("Vertikal spiegeln"), o, "flip_v", { type: "checkbox" }));
+      }
+      box.replaceChildren(el("div", { class: "item-head" }, el("span", {}, cam.name || cam.id)), fields);
+    };
+    render();
+    sec.append(box);
+  }
+  sec.append(el("p", { class: "note" }, t("Neue externe Kameras erscheinen hier nach dem Speichern.")));
+  return sec;
+}
+
 function cameraSourceFields(p) {
   const wrap = el("div", { class: "ams-box" });
   p.camera_source = p.camera_source === "compat" ? "compat" : "direct";

@@ -171,6 +171,14 @@ Under **External cameras**, enter an address such as `rtsp://user:password@192.1
 If you assign the camera to a printer, it also appears on that printer's card and is used for
 notifications. Cameras only run while someone is watching.
 
+##### Rotating and mirroring the image
+
+Cameras that are mounted upside down or turned can be fixed under **Settings → Rotate and mirror
+camera image**. This works for every camera, built-in or external: rotate by 90°, 180° or 270°
+(clockwise) and/or mirror horizontally or vertically. It also applies to notification images and
+timelapses. "Automatic" uses the printer's own setting: for Klipper printers that is the webcam
+setting from Fluidd/Mainsail, so the picture is right without doing anything.
+
 #### Smart plugs
 
 If a printer is connected to a switchable plug in Home Assistant, you can switch it on and off in 3D-PrintDash:
@@ -499,6 +507,14 @@ Bambu-Programmen. Das bleibt auch so.
 Unter **Externe Kameras** eine Adresse eintragen, z. B. `rtsp://benutzer:passwort@192.168.1.50:554/stream1`.
 Ordnest du die Kamera einem Drucker zu, erscheint sie zusätzlich auf dessen Karte und wird für
 Benachrichtigungen genutzt. Kameras laufen nur, solange jemand zuschaut.
+
+##### Bild drehen und spiegeln
+
+Kameras, die kopfüber oder gedreht montiert sind, lassen sich unter **Einstellungen → Kamerabild drehen
+und spiegeln** korrigieren. Das geht für jede Kamera, eingebaut oder extern: um 90°, 180° oder 270°
+drehen (im Uhrzeigersinn) und/oder horizontal bzw. vertikal spiegeln. Es gilt auch für
+Benachrichtigungsbilder und Zeitraffer. «Automatisch» übernimmt die Einstellung des Druckers: Bei
+Klipper-Druckern ist das die Webcam-Einstellung aus Fluidd/Mainsail, das Bild stimmt also ohne Zutun.
 
 #### Steckdosen
 

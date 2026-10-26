@@ -233,6 +233,14 @@ Unter **Externe Kameras** eine Adresse eintragen, z. B. `rtsp://benutzer:passwor
 Ordnest du die Kamera einem Drucker zu, erscheint sie zusätzlich auf dessen Karte und wird für
 Benachrichtigungen genutzt. Kameras laufen nur, solange jemand zuschaut.
 
+#### Bild drehen und spiegeln
+
+Kameras, die kopfüber oder gedreht montiert sind, lassen sich unter **Einstellungen → Kamerabild drehen
+und spiegeln** korrigieren. Das geht für jede Kamera, eingebaut oder extern: um 90°, 180° oder 270°
+drehen (im Uhrzeigersinn) und/oder horizontal bzw. vertikal spiegeln. Es gilt auch für
+Benachrichtigungsbilder und Zeitraffer. «Automatisch» übernimmt die Einstellung des Druckers: Bei
+Klipper-Druckern ist das die Webcam-Einstellung aus Fluidd/Mainsail, das Bild stimmt also ohne Zutun.
+
 ### Steckdosen
 
 Hängt ein Drucker an einer schaltbaren Steckdose in Home Assistant, kannst du ihn in 3D-PrintDash ein-

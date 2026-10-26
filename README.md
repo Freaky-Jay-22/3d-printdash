@@ -229,6 +229,14 @@ Under **External cameras**, enter an address such as `rtsp://user:password@192.1
 If you assign the camera to a printer, it also appears on that printer's card and is used for
 notifications. Cameras only run while someone is watching.
 
+#### Rotating and mirroring the image
+
+Cameras that are mounted upside down or turned can be fixed under **Settings → Rotate and mirror
+camera image**. This works for every camera, built-in or external: rotate by 90°, 180° or 270°
+(clockwise) and/or mirror horizontally or vertically. It also applies to notification images and
+timelapses. "Automatic" uses the printer's own setting: for Klipper printers that is the webcam
+setting from Fluidd/Mainsail, so the picture is right without doing anything.
+
 ### Smart plugs
 
 If a printer is connected to a switchable plug in Home Assistant, you can switch it on and off in 3D-PrintDash:

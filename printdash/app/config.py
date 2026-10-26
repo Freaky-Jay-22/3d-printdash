@@ -34,6 +34,9 @@ DEFAULT_CONFIG = {
         "ha_service": "",
     },
     "camera": {"fps": 10, "width": 1280},
+    # mirror / rotate per camera id: {"mode": "manual", "rotate": 0|90|180|270, "flip_h", "flip_v"};
+    # no entry = automatic (the printer's own webcam settings, e.g. from Moonraker)
+    "camera_orient": {},
     # deduct_usage: subtract the filament of each print from the loaded spool (optional)
     "filament": {"deduct_usage": False, "low_warn_g": 100},
     "costs": {

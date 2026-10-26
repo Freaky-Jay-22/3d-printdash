@@ -4,3 +4,4 @@ paho-mqtt>=2.1,<3
 httpx>=0.27,<1
 python-multipart>=0.0.9
 websockets>=14
+pillow>=10,<13

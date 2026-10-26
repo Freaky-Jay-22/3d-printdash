@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import config as config_store
 from . import auth, backup, costs, filament, ha, history, i18n, maintenance, notify, timelapse, uploads
+from .camera import clean_orient
 from .i18n import t
 from .manager import Manager
 from .printers import PrinterError
@@ -626,6 +627,12 @@ async def put_config(body: dict, request: Request):
         new_cfg["ui"]["theme"] = ""
     if not re.fullmatch(r"#[0-9a-fA-F]{6}", str(new_cfg["ui"].get("accent") or "")):
         new_cfg["ui"]["accent"] = ""
+    orient = {}
+    for cam_id, o in (new_cfg.get("camera_orient") or {}).items():
+        if isinstance(o, dict) and o.get("mode") == "manual" and isinstance(cam_id, str) and len(cam_id) <= 64:
+            c = clean_orient(o) or {"rotate": 0, "flip_h": False, "flip_v": False}
+            orient[cam_id] = {"mode": "manual", **c}
+    new_cfg["camera_orient"] = orient
     if _browser_lang(request):
         new_cfg["ui"]["lang_hint"] = _browser_lang(request)
     pw = new_cfg.get("ui", {}).get("password") or ""

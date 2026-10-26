@@ -7,7 +7,7 @@ import time
 from . import config as config_store
 from . import costs, filament, ha, history, i18n, maintenance, notify, rooms, system, timelapse
 from .i18n import t
-from .camera import CameraHub
+from .camera import CameraHub, clean_orient
 from .printers import ACTIVE_STATES, create
 
 log = logging.getLogger("printdash.manager")
@@ -121,14 +121,25 @@ class Manager:
                 })
         return sources
 
+    def camera_orient(self, src: dict) -> dict | None:
+        """Mirror / rotate: own setting per camera, otherwise what the printer reports
+        (Moonraker webcam settings, the same ones Fluidd and Mainsail use)."""
+        own = (self.cfg.get("camera_orient") or {}).get(src["id"])
+        if isinstance(own, dict) and own.get("mode") == "manual":
+            return clean_orient(own)
+        return clean_orient(src.get("orient"))
+
     def _sync_cameras(self):
         ccfg = self.cfg.get("camera", {})
         wanted = {s["id"]: s for s in self._camera_sources()}
+        for src in wanted.values():
+            src["auto_orient"] = clean_orient(src.get("orient"))
+            src["orient"] = self.camera_orient(src)
         for cam_id in list(self.cameras):
             hub = self.cameras[cam_id]
             src = wanted.get(cam_id)
             if not src or src["url"] != hub.url or src["mode"] != hub.mode \
-                    or bool(src.get("compat")) != hub.compat:
+                    or bool(src.get("compat")) != hub.compat or src.get("orient") != hub.orient:
                 asyncio.create_task(hub.stop())
                 del self.cameras[cam_id]
         for cam_id, src in wanted.items():
