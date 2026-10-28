@@ -3,80 +3,27 @@
 ## 0.3.6
 
 **English**
-- New: **automatic filament system** for Klipper printers (Settings → Printers → "Automatic filament
-  system"). 3D-PrintDash detects which spool is in which slot or toolhead and treats it like a Bambu AMS:
-  spools on the printer card, matched with your inventory, own storage location in the Filament tab
-  (spools in it when the printer is switched off are moved there). Detected automatically, can also be
-  chosen by hand or switched off.
-- Supported: **Qidi Box** (e.g. Qidi Q2, firmware 01.01.03 or newer, incl. box temperature and humidity)
-  and **Snapmaker U1** (filament per toolhead; now also gets its own storage location).
-- Filament tab: "goes back to" now shows the spool's real home location for spools parked in an AMS/box.
-- Filament tab: the storage locations of the printers (AMS, filament systems) are always shown first,
-  before your own locations.
-- Filament tab: assigning a spool by hand now shows the spools in stock with a colour dot, the most similar
-  colour first, so equal materials (e.g. several PLA Matte) can be told apart.
-- Filament tab: the spool on the external holder (Bambu, Qidi Box) gets its own storage location
-  "<printer> (external)" and is moved there when the printer is switched off, like the spools in the AMS / box.
-- Filament tab: the storage locations fill the columns without big gaps.
-- Printer details: long file names under "Recent prints" are shortened with "…", the status badges are aligned.
-- Filament tab: print costs now use the price of the loaded spool's material (e.g. "SNAPSPEED PLA") when it
-  has its own price, instead of the plain type from the print file ("PLA").
-- Filament tab: spools named with a product name first ("SNAPSPEED PLA", "Silk PLA") are now recognised as
-  PLA and matched automatically.
-- Bambu X1: the first layer inspection (HMS 0C00_0300_0003_000B) is a normal step, not an error. It is no
-  longer shown as an error and no longer sends a notification. A problem found by the inspection is still
-  reported.
-- Bambu: instructions and questions on the printer screen are no longer shown as errors and send no
-  notification. Checked against Bambu's full list of printer messages, e.g. when loading or unloading the
-  external spool ("Please pull out the filament", "Please feed the filament", "Filament extruded? Continue /
-  Retry"), "Printing was paused by the user", AMS drying hints, air purification after the print and the
-  backup spool taking over. Real errors (e.g. "Extruding filament failed" from the AMS) are still reported.
-- Bambu: new setting **"Get filament usage from"** (print file on the SD card / Home Assistant / AMS level /
-  automatic). Prints sent through the Bambu cloud, or printers without SD card, showed 0 g before; the usage
-  can now come from the "print weight" sensor of the Home Assistant Bambu Lab integration or from the drop
-  of the AMS level (Bambu spools). Usage, cost and stock deduction work for these prints too.
-- Klipper: cancelled prints and prints without a weight from the slicer now use the filament really
-  extruded (reported by Klipper) instead of an estimate.
+- New: **automatic filament system** for Klipper printers (Settings → Printers): spools in the slots or
+  toolheads are shown on the printer card and matched with your inventory, like a Bambu AMS. Supported:
+  **Qidi Box** (e.g. Qidi Q2, incl. box temperature and humidity) and **Snapmaker U1**.
+- Bambu: new setting **"Get filament usage from"** (SD card / Home Assistant / AMS level), so cloud prints
+  and printers without SD card show their usage too.
+- Filament tab: printer locations first, no big gaps, own location for the external spool, spools with
+  colour dots when assigning by hand.
+- Bug fixes: filament usage and cost, messages on the Bambu screen (e.g. loading filament, first layer
+  inspection) no longer reported as errors, small UI fixes.
 
 **Deutsch**
-- Neu: **automatisches Filamentsystem** für Klipper-Drucker (Einstellungen → Drucker → «Automatisches
-  Filamentsystem»). 3D-PrintDash erkennt, welche Spule in welchem Fach oder Werkzeugkopf steckt, und
-  behandelt es wie ein Bambu-AMS: Spulen auf der Druckerkarte, Abgleich mit dem Bestand, eigener Lagerort
-  im Filament-Tab (Spulen, die beim Ausschalten darin stecken, werden dorthin verschoben). Wird
-  automatisch erkannt, lässt sich aber auch von Hand wählen oder ausschalten.
-- Unterstützt: **Qidi Box** (z. B. Qidi Q2, Firmware 01.01.03 oder neuer, inkl. Temperatur und
-  Feuchtigkeit der Box) und **Snapmaker U1** (Filament pro Werkzeugkopf; bekommt jetzt ebenfalls einen
-  eigenen Lagerort).
-- Filament-Tab: «zurück nach» zeigt bei Spulen, die im AMS/in der Box geparkt sind, jetzt den richtigen
-  Heimatort.
-- Filament-Tab: Die Lagerorte der Drucker (AMS, Filamentsysteme) stehen immer zuoberst, vor den eigenen
-  Lagerorten.
-- Filament-Tab: Beim Zuordnen von Hand zeigt die Liste die Spulen im Bestand mit einem Farbpunkt, die
-  ähnlichste Farbe zuerst. So lassen sich gleiche Materialien (z. B. mehrere PLA Matte) unterscheiden.
-- Filament-Tab: Die Spule am externen Halter (Bambu, Qidi Box) bekommt einen eigenen Lagerort
-  «<Drucker> (extern)» und wandert beim Ausschalten des Druckers dorthin, wie die Spulen im AMS bzw. in der Box.
-- Filament-Tab: Die Lagerorte füllen die Spalten ohne grosse Lücken.
-- Druckerdetails: Lange Dateinamen unter «Letzte Drucke» werden mit «…» gekürzt, die Status-Anzeigen stehen bündig.
-- Filament-Tab: Die Druckkosten nehmen jetzt den Preis des Materials der geladenen Spule (z. B.
-  «SNAPSPEED PLA»), wenn es einen eigenen Preis hat, statt des einfachen Typs aus der Druckdatei («PLA»).
-- Filament-Tab: Spulen, deren Material mit einem Produktnamen beginnt («SNAPSPEED PLA», «Silk PLA»), werden
-  jetzt als PLA erkannt und automatisch zugeordnet.
-- Bambu X1: Die Prüfung der ersten Schicht (HMS 0C00_0300_0003_000B) ist ein normaler Arbeitsschritt und
-  kein Fehler. Sie erscheint nicht mehr als Fehler und löst keine Benachrichtigung mehr aus. Findet die
-  Prüfung ein Problem, wird das weiterhin gemeldet.
-- Bambu: Anweisungen und Rückfragen auf dem Druckerdisplay erscheinen nicht mehr als Fehler und lösen keine
-  Benachrichtigung aus. Geprüft gegen Bambus vollständige Liste der Druckermeldungen, z. B. beim Laden oder
-  Entladen der externen Spule («Filament herausziehen», «Filament einführen», «Filament extrudiert? Weiter /
-  Wiederholen»), «Druck vom Benutzer pausiert», Hinweise zum AMS-Trocknen, Luftreinigung nach dem Druck und
-  das Umschalten auf die Ersatzspule. Echte Fehler (z. B. «Extrudieren fehlgeschlagen» vom AMS) werden
-  weiterhin gemeldet.
-- Bambu: neue Einstellung **«Filamentverbrauch ermitteln über»** (Druckdatei auf der SD-Karte / Home
-  Assistant / AMS-Füllstand / automatisch). Drucke über die Bambu-Cloud oder Drucker ohne SD-Karte zeigten
-  bisher 0 g; der Verbrauch kann jetzt aus dem Sensor «Gewicht des Drucks» der Bambu-Lab-Integration in
-  Home Assistant oder aus der Abnahme des AMS-Füllstands (Bambu-Spulen) kommen. Verbrauch, Kosten und Abzug
-  vom Bestand funktionieren damit auch für diese Drucke.
-- Klipper: Abgebrochene Drucke und Drucke ohne Gewichtsangabe des Slicers nutzen jetzt das tatsächlich
-  extrudierte Filament (von Klipper gemeldet) statt einer Schätzung.
+- Neu: **automatisches Filamentsystem** für Klipper-Drucker (Einstellungen → Drucker): Spulen in den
+  Fächern oder Werkzeugköpfen erscheinen auf der Druckerkarte und werden mit dem Bestand abgeglichen, wie
+  bei einem Bambu-AMS. Unterstützt: **Qidi Box** (z. B. Qidi Q2, inkl. Temperatur und Feuchtigkeit der Box)
+  und **Snapmaker U1**.
+- Bambu: neue Einstellung **«Filamentverbrauch ermitteln über»** (SD-Karte / Home Assistant /
+  AMS-Füllstand), damit auch Cloud-Drucke und Drucker ohne SD-Karte ihren Verbrauch zeigen.
+- Filament-Tab: Drucker-Lagerorte zuoberst, keine grossen Lücken, eigener Lagerort für die externe Spule,
+  Spulen mit Farbpunkt beim Zuordnen von Hand.
+- Fehlerbehebungen: Filamentverbrauch und Kosten, Meldungen am Bambu-Display (z. B. Filament laden,
+  Prüfung der ersten Schicht) gelten nicht mehr als Fehler, kleine Korrekturen an der Oberfläche.
 
 ## 0.3.5
 
