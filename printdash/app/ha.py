@@ -3,6 +3,8 @@
 As an add-on the Supervisor token is used automatically. With docker compose,
 set HA_URL and HA_TOKEN (long-lived access token).
 """
+import re
+
 import httpx
 
 from .notify import ha_api
@@ -197,6 +199,63 @@ async def get_image(entity_id: str) -> tuple[bytes, str] | None:
         return None
     return r.content, r.headers.get("content-type", "image/png")
 
+
+
+# -- print weight of the Bambu Lab integration (cloud prints) ------------------------
+WEIGHT_WORDS = ("print_weight", "print weight", "gewicht_des_drucks", "gewicht des drucks", "druckgewicht")
+_TRAY = re.compile(r"ams\s*(\d+)\s*tray\s*(\d+)", re.I)
+
+
+async def bambu_print_weight(serial: str = "") -> dict | None:
+    """Filament weight of the current print from the HA Bambu Lab integration.
+    The integration knows it for prints sent through the Bambu cloud (the print file is
+    then not on the printer's SD card). Returns {"weight_g", "slots": {slot: g}} or None."""
+    import json as _json
+    template = ("{% set ns = namespace(o=[]) %}{% for e in integration_entities('bambu_lab') %}"
+                "{% if e.startswith('sensor.') and state_attr(e, 'device_class') == 'weight' %}"
+                "{% set d = device_id(e) %}"
+                "{% set ns.o = ns.o + [{'id': e, 'serial': (device_attr(d, 'serial_number') if d else '') or ''}] %}"
+                "{% endif %}{% endfor %}{{ ns.o | tojson }}")
+    try:
+        found = _json.loads(await _request_text("POST", "/template", json={"template": template}))
+    except (HAError, ValueError):
+        return None
+    serial = (serial or "").strip().lower()
+
+    def rank(c):
+        sid = str(c.get("serial") or "").lower()
+        mine = (serial and sid == serial) or (serial and serial in c["id"].lower())
+        named = any(w in c["id"].lower() for w in WEIGHT_WORDS)
+        return (not mine, not named)
+    found.sort(key=rank)
+    for c in found:
+        sid = str(c.get("serial") or "").lower()
+        if serial and sid and sid != serial and serial not in c["id"].lower():
+            continue  # sensor of another printer
+        try:
+            st = await get_state(c["id"])
+        except HAError:
+            continue
+        attrs = st.get("attributes") or {}
+        slots = {}
+        for key, value in attrs.items():
+            m = _TRAY.search(str(key))
+            try:
+                g = float(value)
+            except (TypeError, ValueError):
+                continue
+            if m and g > 0:
+                slots[(int(m.group(1)) - 1) * 4 + int(m.group(2))] = g
+            elif "ext" in str(key).lower() and g > 0:
+                slots["Ext"] = g
+        try:
+            total = float(st.get("state"))
+        except (TypeError, ValueError):
+            total = 0
+        if not (total > 0 or slots) or not (any(w in c["id"].lower() for w in WEIGHT_WORDS) or slots):
+            continue
+        return {"weight_g": round(total or sum(slots.values()), 2), "slots": slots, "entity": c["id"]}
+    return None
 
 
 # -- climate sensors for the filament tab ----------------------------------------

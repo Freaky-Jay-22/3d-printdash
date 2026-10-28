@@ -57,6 +57,9 @@ class Manager:
         self._meta_loading = set()
         self._ams_state = {}     # printer id -> {online, since, slots{slot: item_id}} for AMS parking
         self._job_slots = {}     # printer id -> slots that were active during the running print
+        self._ext_checked = set()  # Klipper printers whose external-spool location was checked
+        self._spool_cache = {}   # printer id -> (time, {material family: spool material})
+        self._ams_start = {}     # printer id -> {slot: {remain, spool_g, type}} at the start of the print
         self.maint = {}          # printer id -> maintenance task status (refreshed every 30 s)
         self._maint_at = 0.0
         self.started_at = time.time()
@@ -168,7 +171,9 @@ class Manager:
             meta = self.job_meta.get(printer.id)
             st["job"] = None
             if meta and st.get("filename") and meta["key"] == st["filename"]:
-                cost, mats = costs.job_cost(self.cfg, meta.get("materials"), meta.get("weight_g"))
+                spools = self._spool_prices(meta, self._spool_materials(
+                    printer, st, self._job_slots.get(printer.id), cache=True))
+                cost, mats = costs.job_cost(self.cfg, meta.get("materials"), meta.get("weight_g"), spools=spools)
                 st["job"] = {"key": meta["key"], "thumb": bool(meta.get("thumb")),
                              "weight_g": meta.get("weight_g"), "length_m": meta.get("length_m"),
                              "cost": cost, "materials": mats}
@@ -210,7 +215,8 @@ class Manager:
         if self._ams_source(pid) != "ha":
             return units
         extra = self.ams_sensors.get(pid) or {}
-        name = (self._pcfg(pid).get("ams_sensor_name") or "").strip() or "AMS"
+        default = "AMS" if self._pcfg(pid).get("type", "bambu") == "bambu" else "Box"
+        name = (self._pcfg(pid).get("ams_sensor_name") or "").strip() or default
         return [{"name": name, "temp": extra.get("temp"), "hum": extra.get("hum"), "hum_level": None,
                  "bat": extra.get("bat"), "src": "ha",
                  "configured": {k: bool((self._pcfg(pid).get(f) or "").strip()) for k, f in self.AMS_KEYS}}]
@@ -297,16 +303,27 @@ class Manager:
     AMS_SETTLE_S = 120  # after switching on, wait before treating a missing spool as removed
 
     async def _check_ams_parking(self, printer):
-        """Bambu printer with "AMS vorhanden": remember which stored spools are in the AMS.
+        """Printer with "AMS vorhanden" (Bambu AMS, Qidi Box ...): remember which stored spools are in the AMS.
         Switched off (offline or plug off) -> they move to the printer's AMS location.
         Taken out while the printer runs -> back to where they came from."""
         if printer is None:
             return
         pid = printer.id
-        if printer.type != "bambu" or not self._pcfg(pid).get("has_ams"):
+        st = printer.snapshot()
+        if printer.type == "bambu":
+            # every Bambu has the external holder; with "AMS vorhanden" also the AMS
+            has_box = True
+        else:
+            # Klipper: automatic filament system (Qidi Box, Snapmaker U1 toolheads ...)
+            system = getattr(printer, "filament_system", lambda: None)()
+            if system and st.get("online"):
+                loc = await asyncio.to_thread(filament.ensure_box_location, pid, system["label"], printer.name)
+                if loc:
+                    log.info("%s: %s detected, storage location created", printer.name, system["name"])
+            has_box = bool(system) or pid in self._ams_state
+        if not has_box:
             self._ams_state.pop(pid, None)
             return
-        st = printer.snapshot()
         plug_off = (self.power.get(pid) or {}).get("on") is False
         online = bool(st.get("online")) and not plug_off
         state = self._ams_state.setdefault(pid, {"online": False, "since": 0.0, "slots": {}})
@@ -319,9 +336,16 @@ class Manager:
             return
         if not state["online"]:
             state.update(online=True, since=time.time(), slots={})
-        ams = [dict(f) for f in st.get("filaments") or [] if str(f.get("slot")) != "Ext"]
+        # all slots incl. the external spool: it stays at the printer when it is switched off
+        ams = [dict(f) for f in st.get("filaments") or []]
         if not ams:
             return  # AMS not reported yet
+        if printer.type != "bambu" and pid not in self._ext_checked \
+                and any(str(f.get("slot")) == filament.EXTERNAL_SLOT for f in ams):
+            # Klipper filament system with an external holder (Qidi Box): own location for it
+            self._ext_checked.add(pid)
+            if await asyncio.to_thread(filament.ensure_ext_location, pid, printer.name):
+                log.info("%s: storage location for the external spool created", printer.name)
         data = await asyncio.to_thread(filament.load)
         loaded = [{"printer": printer.name, "printer_id": pid, "filaments": ams}]
         reserved = {k: sum(x["qty"] for x in v) for k, v in filament.in_dryer(data).items()}
@@ -414,11 +438,18 @@ class Manager:
             if job is None:
                 self._jobs[pid] = history.start_job(pid, printer.name, cur["filename"])
                 self._job_slots[pid] = set()
+                self._ams_start.pop(pid, None)
             elif cur["filename"]:
                 history.update_filename(job, cur["filename"])
             for f in cur.get("filaments") or []:
                 if f.get("active"):
                     self._job_slots.setdefault(pid, set()).add(str(f.get("slot")))
+            # AMS level at the start of the print (usage from the AMS level, Bambu spools)
+            start = self._ams_start.setdefault(pid, {})
+            for f in cur.get("filaments") or []:
+                if f.get("remain") is not None and str(f.get("slot")) not in start:
+                    start[str(f.get("slot"))] = {"remain": f["remain"], "spool_g": f.get("spool_g"),
+                                                 "type": f.get("type")}
             self._maybe_timelapse(printer, cur)
         elif job is not None:
             del self._jobs[pid]
@@ -455,9 +486,9 @@ class Manager:
             return
         meta = self.job_meta.get(pid)
         if meta and meta["key"] == key:
-            # retry a failed lookup every 5 minutes while printing
-            if meta.get("thumb") or time.time() - meta["at"] < 120 \
-                    or cur["state"] not in ACTIVE_STATES:
+            # retry a failed lookup every 2 minutes while printing (at most 10 times)
+            if (meta.get("thumb") and meta.get("weight_g")) or time.time() - meta["at"] < 120 \
+                    or cur["state"] not in ACTIVE_STATES or meta.get("tries", 0) >= 10:
                 return
         self._meta_loading.add(pid)
         asyncio.create_task(self._load_meta(printer, cur, key))
@@ -473,7 +504,11 @@ class Manager:
                 fetched = await printer.fetch_job_meta(cur)
                 if fetched:
                     data = {**(data or {}), **{k: v for k, v in fetched.items() if v}}
-            self.job_meta[pid] = {"key": key, "at": time.time(), **(data or {})}
+            old = self.job_meta.get(pid) or {}
+            tries = old.get("tries", 0) + 1 if old.get("key") == key else 1
+            if old.get("key") == key:
+                data = {**{k: v for k, v in old.items() if v and k not in ("key", "at", "tries")}, **(data or {})}
+            self.job_meta[pid] = {"key": key, "at": time.time(), "tries": tries, **(data or {})}
         except Exception as exc:  # noqa: BLE001
             log.warning("%s: preview could not be loaded: %s", printer.name, exc)
             self.job_meta[pid] = {"key": key, "at": time.time()}
@@ -547,10 +582,36 @@ class Manager:
         meta = self.job_meta.get(printer.id) or {}
         if meta.get("key") != st.get("filename"):
             meta = {}
-        share = 1.0 if status == "finished" else (st.get("progress") or 0) / 100
+        source = printer.usage_source() if hasattr(printer, "usage_source") else "file"
+        ams_start = self._ams_start.pop(printer.id, {})
+        if not meta.get("weight_g") and source in ("auto", "ha"):
+            # last chance for cloud prints: weight from the Home Assistant integration
+            try:
+                extra = await printer.ha_print_weight(st)
+            except Exception:  # noqa: BLE001
+                extra = None
+            if extra:
+                meta = {**meta, **extra}
+        measured = False
+        if source == "ams" or (source == "auto" and not meta.get("weight_g")):
+            used = self._usage_from_ams(ams_start, st)
+            if used:
+                meta = {**meta, **used}
+                measured = True
+        # Klipper reports the filament really extruded: use it when the slicer gave no weight,
+        # and for cancelled / failed prints instead of a share by progress
+        used_mm = st.get("filament_used_mm")
+        if used_mm and used_mm > 0 and not measured and (not meta.get("weight_g") or status != "finished"):
+            used = self._usage_from_length(used_mm, meta, st)
+            if used:
+                meta = {**meta, **used}
+                measured = True
+        # a measured usage is what was really used, also for cancelled prints
+        share = 1.0 if status == "finished" or measured else (st.get("progress") or 0) / 100
         grams = round(meta["weight_g"] * share, 1) if meta.get("weight_g") else None
         meters = round(meta["length_m"] * share, 2) if meta.get("length_m") else None
-        cost, mats = costs.job_cost(self.cfg, meta.get("materials"), meta.get("weight_g"), share)
+        spools = self._spool_prices(meta, await asyncio.to_thread(self._spool_materials, printer, st, slots))
+        cost, mats = costs.job_cost(self.cfg, meta.get("materials"), meta.get("weight_g"), share, spools)
         deducted = []
         if (self.cfg.get("filament") or {}).get("deduct_usage") and (mats or grams):
             try:
@@ -575,6 +636,47 @@ class Manager:
         if self.timelapse.count(job_id):
             await self._encode_timelapse(printer, job_id, st.get("filename"))
 
+    @staticmethod
+    def _usage_from_length(mm: float, meta: dict, st: dict) -> dict | None:
+        """Usage from the extruded length (Klipper). With several materials the measured total is
+        split like the slicer estimate; without one, the material of the active toolhead is used."""
+        mats = [m for m in meta.get("materials") or [] if m.get("g")]
+        if mats:
+            planned = sum(m["g"] for m in mats)
+            per_g = sum(costs.grams_from_length(mm * m["g"] / planned, m.get("type")) for m in mats)
+            out = [{"type": m.get("type") or "?", "g": round(per_g * m["g"] / planned, 1)} for m in mats]
+        else:
+            active = next((f for f in st.get("filaments") or [] if f.get("active") and f.get("type")), None)
+            kind = (active or {}).get("type") or "?"
+            out = [{"type": kind, "g": round(costs.grams_from_length(mm, kind), 1)}]
+        total = round(sum(m["g"] for m in out), 1)
+        if total <= 0:
+            return None
+        return {"weight_g": total, "length_m": round(mm / 1000, 2), "materials": out}
+
+    @staticmethod
+    def _usage_from_ams(start: dict, st: dict) -> dict | None:
+        """Usage from the drop of the AMS level (Bambu spools report it in %), per slot."""
+        if not start:
+            return None
+        now = {str(f.get("slot")): f for f in st.get("filaments") or []}
+        mats, total = {}, 0.0
+        for slot, s in start.items():
+            f = now.get(slot)
+            if not f or f.get("remain") is None:
+                continue
+            drop = float(s["remain"]) - float(f["remain"])
+            if drop <= 0:
+                continue
+            grams = drop / 100 * float(s.get("spool_g") or f.get("spool_g") or 1000)
+            kind = s.get("type") or f.get("type") or "?"
+            mats[kind] = mats.get(kind, 0) + grams
+            total += grams
+        if total <= 0:
+            return None
+        return {"weight_g": round(total, 1), "length_m": None,
+                "materials": [{"type": k, "g": round(v, 1)} for k, v in mats.items()]}
+
     # -- maintenance reminders ------------------------------------------------
     MAINT_NAMES = {"clean": "Drucker reinigen", "lube": "Schmieren"}
 
@@ -596,6 +698,44 @@ class Manager:
                           hours=round(task["hours_since"]), days=round(task["days_since"]))))
 
     # -- filament usage ------------------------------------------------------
+    SPOOL_CACHE_S = 15
+
+    def _spool_materials(self, printer, st, slots=None, cache=False) -> dict:
+        """{material family: material of the stored spool}, for the price. Only the slots used by
+        the print; a family with spools of different materials is left out."""
+        pid = printer.id
+        hit = self._spool_cache.get(pid)
+        if cache and hit and time.time() - hit[0] < self.SPOOL_CACHE_S:
+            return hit[1]
+        out = {}
+        try:
+            fils = [dict(f) for f in st.get("filaments") or [] if f.get("type")]
+            if fils:
+                data = filament.load()
+                reserved = {k: sum(x["qty"] for x in v) for k, v in filament.in_dryer(data).items()}
+                filament.match(data, [{"printer": printer.name, "printer_id": pid, "filaments": fils}], reserved)
+                items = {i["id"]: i for i in data.get("items") or []}
+                used = [f for f in fils if f.get("item_id") in items
+                        and (str(f.get("slot")) in slots if slots else f.get("active"))]
+                found = {}
+                for f in used:
+                    found.setdefault(filament._family(f["type"]), set()).add(items[f["item_id"]].get("material") or f["type"])
+                out = {k: v.pop() for k, v in found.items() if len(v) == 1}
+        except Exception:  # noqa: BLE001
+            log.exception("Spool materials")
+        self._spool_cache[pid] = (time.time(), out)
+        return out
+
+    @staticmethod
+    def _spool_prices(meta, by_family) -> dict:
+        """{material type in the print file: spool material} for costs.job_cost."""
+        out = {}
+        for m in meta.get("materials") or []:
+            spool = by_family.get(filament._family(m.get("type")))
+            if spool:
+                out[m.get("type")] = spool
+        return out
+
     async def _deduct_usage(self, printer, st, mats, grams, slots) -> list:
         """Subtract the print's filament from the spools that were used (optional setting).
         Per material: the active slots of that material family share its grams."""

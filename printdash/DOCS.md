@@ -76,9 +76,9 @@ from Home Assistant ③ Loaded filament per toolhead
 | Printer | Connection | Notes |
 |---|---|---|
 | **Bambu Lab printers** | LAN (MQTT, FTPS) | Camera: video stream on the X1 and H2 series, still images on P1 and A1 (new, not yet tested on a real P1/A1). For control see below. |
-| **Klipper printers with Moonraker** | HTTP API | e.g. Voron, Sovol, Snapmaker U1. Multiple toolheads are supported. |
+| **Klipper printers with Moonraker** | HTTP API | e.g. Voron, Sovol, Snapmaker U1, Qidi Q2. Multiple toolheads and the Qidi Box are supported. |
 
-So far 3D-PrintDash has been tested with a Bambu Lab printer of the X1 series and a Snapmaker U1.
+So far 3D-PrintDash has been tested with Bambu Lab X1C and P1S, a Snapmaker U1 and (by users) a Qidi Q2.
 Feedback about other models is welcome.
 
 ### Updates
@@ -164,6 +164,15 @@ software, and will not do so in the future.
 - **Snapmaker U1:** the stock firmware has no video stream. 3D-PrintDash detects this and shows the
   built-in camera at about 2 frames per second. Leave "Camera URL" empty for this. Filaments per toolhead
   (material, colour, vendor) are shown if the printer knows them.
+- **Automatic filament system:** some Klipper printers know which spool is in which slot or toolhead.
+  3D-PrintDash detects this by itself (setting "Automatic filament system" = "Detect automatically") and
+  treats it like a Bambu AMS: the spools show up on the printer card, are matched with your inventory and
+  get their own storage location in the Filament tab (spools in it when the printer is switched off are
+  moved there). Supported so far:
+  - **Qidi Box** (e.g. Qidi Q2, firmware 01.01.03 or newer), including the box's temperature and humidity
+  - **Snapmaker U1** (filament per toolhead)
+
+  You can also pick the system by hand or switch it off with "None".
 
 #### External cameras
 
@@ -201,6 +210,9 @@ If a printer is connected to a switchable plug in Home Assistant, you can switch
   the spools detected in the AMS move there – of several identical spools only the loaded number. Each
   parked spool remembers where it came from ("↩ from shelf"); if you take it out while the printer is
   running, it goes back there automatically.
+- **External spool as a location:** every Bambu printer (and a Qidi Box with a spool on the external holder)
+  also gets the location "<printer> (external)". The spool on the external holder is parked there when the
+  printer is switched off, in the same way.
 - **Spools** with brand, material, colour, count and condition (new / opened, optionally remaining weight).
   The top row shows count, total amount and value. With **"→ …"** you move spools to another location;
   if an entry has several spools, you choose how many go.
@@ -244,6 +256,17 @@ running even when the browser is closed.
 - **Preview image** of the part on the card and in the history. It comes from the print file; for Bambu
   printers 3D-PrintDash fetches the file from the printer.
 - **Filament usage** according to the slicer, per print in grams and metres, proportionally for cancelled prints.
+  For Bambu printers you choose where the usage comes from (Settings → Printers → "Get filament usage from"):
+  - **Print file on the SD card** (most accurate, per material): only works with an SD card in the printer,
+    and for prints sent through the Bambu cloud only if the printer keeps the file there.
+  - **Home Assistant:** the "print weight" sensor of the Bambu Lab integration in cloud mode (per AMS slot),
+    also for cloud prints.
+  - **AMS level:** the drop of the AMS level in percent, turned into grams. Works without SD card and
+    integration, but only with Bambu spools and roughly (1 % ≈ 10 g for 1 kg spools).
+  - **Automatic** (default): print file, else Home Assistant, else AMS level.
+
+  Klipper printers report the filament really extruded. 3D-PrintDash uses it for cancelled prints and when
+  the slicer wrote no weight into the file.
 - **Cost:** under Settings → **Filament prices**, set a price per kg for each material. Variants such as
   "PLA Basic" count as the base material, anything unknown uses the default price. A material you add
   under Filament → Brands appears there automatically (starting with the price used so far);
@@ -411,9 +434,9 @@ Klipper-Drucker, eine Tabelle oder Notizen fürs Filament und Home Assistant fü
 | Drucker | Verbindung | Hinweise |
 |---|---|---|
 | **Bambu-Lab-Drucker** | LAN (MQTT, FTPS) | Kamera: Video-Stream bei der X1- und H2-Serie, Einzelbilder bei P1 und A1 (neu, an einem echten P1/A1 noch ungetestet). Steuerung siehe unten. |
-| **Klipper-Drucker mit Moonraker** | HTTP-API | z. B. Voron, Sovol, Snapmaker U1. Mehrere Werkzeugköpfe werden unterstützt. |
+| **Klipper-Drucker mit Moonraker** | HTTP-API | z. B. Voron, Sovol, Snapmaker U1, Qidi Q2. Mehrere Werkzeugköpfe und die Qidi Box werden unterstützt. |
 
-Getestet ist 3D-PrintDash bisher mit einem Bambu-Lab-Drucker der X1-Serie und einem Snapmaker U1.
+Getestet ist 3D-PrintDash bisher mit Bambu Lab X1C und P1S, einem Snapmaker U1 und (von Nutzern) einem Qidi Q2.
 Rückmeldungen zu anderen Modellen sind willkommen.
 
 ### Updates
@@ -501,6 +524,15 @@ Bambu-Programmen. Das bleibt auch so.
 - **Snapmaker U1:** Die Original-Firmware hat keinen Video-Stream. 3D-PrintDash erkennt das und zeigt die
   eingebaute Kamera mit etwa 2 Bildern pro Sekunde. „Kamera-URL“ dafür leer lassen. Filamente pro
   Werkzeugkopf (Material, Farbe, Hersteller) werden angezeigt, sofern der Drucker sie kennt.
+- **Automatisches Filamentsystem:** Manche Klipper-Drucker wissen, welche Spule in welchem Fach oder
+  Werkzeugkopf steckt. 3D-PrintDash erkennt das selbst (Einstellung «Automatisches Filamentsystem» =
+  «Automatisch erkennen») und behandelt es wie ein Bambu-AMS: Die Spulen erscheinen auf der Druckerkarte,
+  werden mit dem Bestand abgeglichen und bekommen im Filament-Tab einen eigenen Lagerort (Spulen, die beim
+  Ausschalten darin stecken, werden dorthin verschoben). Bisher unterstützt:
+  - **Qidi Box** (z. B. Qidi Q2, Firmware 01.01.03 oder neuer), inkl. Temperatur und Feuchtigkeit der Box
+  - **Snapmaker U1** (Filament pro Werkzeugkopf)
+
+  Das System lässt sich auch von Hand wählen oder mit «Keines» ausschalten.
 
 #### Externe Kameras
 
@@ -540,6 +572,9 @@ und ausschalten:
   Steckdose aus) wandern die im AMS erkannten Spulen dorthin, von mehreren gleichen Spulen nur die
   geladene Anzahl. Jede geparkte Spule merkt sich ihre Herkunft („↩ aus Lager“). Nimmst du sie bei
   laufendem Drucker heraus, kommt sie automatisch dorthin zurück.
+- **Externe Spule als Lagerort:** Jeder Bambu-Drucker (und eine Qidi Box mit Spule am externen Halter)
+  bekommt zusätzlich den Lagerort „<Drucker> (extern)“. Die Spule am externen Halter wird beim Ausschalten
+  des Druckers genauso dorthin geparkt.
 - **Spulen** mit Marke, Material, Farbe, Anzahl und Zustand (neu / angefangen, optional Restgewicht).
   Oben stehen Anzahl, Gesamtmenge und Warenwert. Mit **„→ …“** verschiebst du Spulen an einen anderen Ort;
   hat ein Eintrag mehrere Spulen, wählst du, wie viele mitgehen.
@@ -584,6 +619,18 @@ Der Timer läuft auch weiter, wenn der Browser geschlossen ist.
 - **Vorschaubild** des Teils auf der Karte und in der Historie. Es kommt aus der Druckdatei, bei
   Bambu-Druckern holt 3D-PrintDash die Datei dafür vom Drucker.
 - **Filamentverbrauch** laut Slicer pro Druck in Gramm und Metern, bei abgebrochenen Drucken anteilig.
+  Bei Bambu-Druckern wählst du, woher der Verbrauch kommt (Einstellungen → Drucker → «Filamentverbrauch
+  ermitteln über»):
+  - **Druckdatei auf der SD-Karte** (am genauesten, pro Material): geht nur mit SD-Karte im Drucker, bei
+    Drucken über die Bambu-Cloud nur, wenn der Drucker die Datei dort ablegt.
+  - **Home Assistant:** Sensor «Gewicht des Drucks» der Bambu-Lab-Integration im Cloud-Modus (pro AMS-Fach),
+    auch für Cloud-Drucke.
+  - **AMS-Füllstand:** die Abnahme des AMS-Füllstands in Prozent, umgerechnet in Gramm. Geht ohne SD-Karte
+    und Integration, aber nur mit Bambu-Spulen und grob (1 % ≈ 10 g bei 1-kg-Spulen).
+  - **Automatisch** (Standard): Druckdatei, sonst Home Assistant, sonst AMS-Füllstand.
+
+  Klipper-Drucker melden das tatsächlich extrudierte Filament. 3D-PrintDash verwendet es bei abgebrochenen
+  Drucken und wenn der Slicer kein Gewicht in die Datei geschrieben hat.
 - **Kosten:** unter Einstellungen → **Filamentpreise** einen Preis pro kg je Material. Varianten wie
   „PLA Basic“ zählen zum Grundmaterial, alles Unbekannte zum Standardpreis. Ein Material, das du unter
   Filament → Marken neu erfasst, erscheint dort automatisch (mit dem bisher verwendeten Preis);

@@ -28,7 +28,68 @@ from .base import BasePrinter, PrinterError
 log = logging.getLogger("printdash.bambu")
 
 CANCELLED_ERROR = 0x0300400C  # "Print was cancelled" error code
+# print_error codes that are only an instruction or question to the user, not an error:
+# no error on the card, no notification. Texts from Bambu's error list (Bambu Studio / HMS files).
+# Spool holder (external spool) of the extruder: 07FF, 07FE (left, H2D), 12FF (A1 / A1 mini), 18FF / 18FE.
+SPOOL_HOLDERS = {0x07FF, 0x07FE, 0x12FF, 0x18FF, 0x18FE}
+SPOOL_HOLDER_PROMPTS = {
+    0x8003, 0xC003, 0xC008,  # unloading: "Please pull out the filament on the spool holder"
+    0x8006, 0xC006, 0xC009,  # loading: "Please feed filament into the PTFE tube until it can not be pushed further"
+    0x8007, 0xC00A,          # loading: "Filament extruded? Continue / Retry"
+    0xC010, 0xC011, 0xC012,  # guided steps: insert filament / pull out slowly / unplug PTFE tube, then "Continue"
+}
+# AMS / AMS HT units 0700-0707, 1800-1807: answers to an action at the printer (drying)
+AMS_PROMPTS = {
+    0x8017,                                  # "AMS is drying, stop drying before loading/unloading"
+    0xC06A, 0xC06B, 0xC06C, 0xC06D, 0xC06E,  # "cannot start drying right now, try again later"
+}
+PROMPT_ERRORS = {
+    0x03008001,  # "Printing was paused by the user" (pausing has its own notification)
+    0x05008041,  # "Filament in hotend is too cold. Still feeding in/out?"
+    0x10018003,  # "Time-lapse mode is Traditional ... Would you like to enable?"
+    0x1000C003,  # "Enabling timelapse in traditional mode may cause defects"
+}
+
+
+def is_prompt(code):
+    """True when a print_error code is only an instruction / question to the user.
+    Note: the same low code from an AMS unit (e.g. 0700_8007 "extruding failed") is a real error."""
+    unit, low = code >> 16, code & 0xFFFF
+    if code in PROMPT_ERRORS:
+        return True
+    if unit in SPOOL_HOLDERS and low in SPOOL_HOLDER_PROMPTS:
+        return True
+    return (0x0700 <= unit <= 0x0707 or 0x1800 <= unit <= 0x1807) and low in AMS_PROMPTS
+
+
+def _hms_prompt(c):
+    """True when an HMS code (AAAA_BBBB_CCCC_DDDD) belongs to such a question."""
+    try:
+        return is_prompt(int(c[:4] + c[5:9], 16))
+    except ValueError:
+        return False
+
+
 HMS_SEVERITY = {1: "fatal", 2: "serious", 3: "common", 4: "info"}
+# HMS codes that are only a status message or instruction, not a problem: not shown, no notification.
+# A real finding of the same check comes with a different code and is still reported.
+HMS_STATUS_ONLY = {
+    "0C00_0300_0003_000B",  # X1: first layer inspection running
+    "0500_0400_0003_0057",  # print finished, automatic air purification running
+    "12FF_2000_0003_0007",  # checking the filament location of all AMS slots
+}
+HMS_STATUS_PATTERNS = [
+    re.compile(r"(07|12|18)F[EF]_2000_0002_0004"),           # unloading: "Please pull the external filament from the extruder"
+    re.compile(r"(07|18)0[0-7]_5600_0003_0001"),             # AMS drying: cooling down, please wait
+    re.compile(r"(07|18)0[0-7]_2[0-3]00_0003_0001"),         # slot empty, backup spool: purging old filament
+    re.compile(r"120[0-3]_2[0-3]00_0003_0001"),              # same for AMS lite
+]
+
+
+def hms_status_only(c):
+    return c in HMS_STATUS_ONLY or any(p.fullmatch(c) for p in HMS_STATUS_PATTERNS)
+
+
 GCODE_STATE_MAP = {
     "IDLE": "idle",
     "INIT": "idle",
@@ -307,13 +368,15 @@ class BambuPrinter(BasePrinter):
             if light.get("node") == "chamber_light":
                 st["light"] = light.get("mode") in ("on", "flashing")
 
-        if print_error and print_error != CANCELLED_ERROR:
+        if print_error and print_error != CANCELLED_ERROR and not is_prompt(print_error):
             st["error"] = t("Druckfehler {code}", code=f"{print_error >> 16:04X}_{print_error & 0xFFFF:04X}")
 
         hms = []
         for item in p.get("hms") or []:
             attr, code = int(item.get("attr", 0)), int(item.get("code", 0))
             c = hms_code(attr, code)
+            if hms_status_only(c) or _hms_prompt(c):
+                continue
             hms.append({
                 "code": c,
                 "severity": HMS_SEVERITY.get(code >> 16, "info"),
@@ -336,6 +399,8 @@ class BambuPrinter(BasePrinter):
                     "remain": tray.get("remain") if isinstance(tray.get("remain"), (int, float))
                     and tray.get("remain") >= 0 else None,
                     "uid": _uid(tray.get("tray_uuid")) or _uid(tray.get("tag_uid")),
+                    # full spool weight in g (Bambu spools report it), for the usage from the AMS level
+                    "spool_g": _to_float(tray.get("tray_weight")) or None,
                 })
         vt = p.get("vt_tray")
         if isinstance(vt, dict) and vt.get("tray_type"):
@@ -513,6 +578,13 @@ class BambuPrinter(BasePrinter):
                 path = (exact or fuzzy or [None])[0]
             dbg["match"] = path
             if not path:
+                # helps to find out where cloud prints are stored (file names only, local log)
+                listing = "; ".join(
+                    f"{folder}: " + (", ".join(names[:40]) + (" …" if len(names) > 40 else "")
+                                     if isinstance(names, list) else str(names))
+                    for folder, names in dbg["folders"].items())
+                log.info("%s: print file for '%s' (printer reports '%s') not found. Files on the printer: %s",
+                         self.name, subtask, gcode_file, listing or "-")
                 return None
             data = self._ftp_read(ftp, f"RETR {path}")
         finally:
@@ -543,7 +615,46 @@ class BambuPrinter(BasePrinter):
             cover = await self._cover_from_ha()
             if cover:
                 meta = {**(meta or {}), "thumb": cover[0], "thumb_type": cover[1]}
+        source = self.usage_source()
+        usage_keys = ("weight_g", "length_m", "materials")
+        if source in ("ha", "ams") and meta:
+            # the usage comes from somewhere else; the print file only gives the preview
+            meta = {k: v for k, v in meta.items() if k not in usage_keys}
+        if source == "ha" or (source == "auto" and not (meta and meta.get("weight_g"))):
+            if source == "auto":
+                log.info("%s: print file not found on the printer (cloud print?), trying Home Assistant", self.name)
+            extra = await self.ha_print_weight(st)
+            if extra:
+                meta = {**(meta or {}), **extra}
         return meta
+
+    def usage_source(self) -> str:
+        """Where the filament usage of a print comes from (setting per printer):
+        auto = print file, then Home Assistant, then AMS level | file | ha | ams"""
+        src = self.cfg.get("usage_source") or "auto"
+        return src if src in ("auto", "file", "ha", "ams") else "auto"
+
+    async def ha_print_weight(self, st: dict) -> dict | None:
+        """Weight per material from the HA Bambu Lab integration (sensor "print weight")."""
+        from .. import ha  # local import to avoid a cycle
+        if not ha.available():
+            return None
+        with self._lock:
+            kind = str(self.raw.get("print_type") or "").lower()
+        if kind and kind != "cloud":
+            return None  # the HA value may still belong to an earlier cloud print
+        res = await ha.bambu_print_weight(self.serial)
+        if not res:
+            return None
+        self.preview_debug = {**self.preview_debug, "ha_weight": res["entity"]}
+        types = {str(f.get("slot")): f.get("type") for f in st.get("filaments") or []}
+        mats = {}
+        for slot, g in res["slots"].items():
+            kind = types.get(str(slot)) or "?"
+            mats[kind] = mats.get(kind, 0) + g
+        return {"weight_g": res["weight_g"],
+                "materials": [{"type": k, "g": round(v, 2)} for k, v in mats.items()],
+                "slots_g": {str(k): v for k, v in res["slots"].items()}}
 
     async def _cover_from_ha(self):
         """Fallback: cover image of the Home Assistant Bambu Lab integration."""

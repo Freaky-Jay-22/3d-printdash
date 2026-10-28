@@ -523,9 +523,10 @@ Object.assign(I18N.en, {
 
   // AMS of a printer
   "AMS vorhanden": "AMS installed",
-  "Legt im Filament-Tab einen Lagerort für dieses AMS an. Spulen, die beim Ausschalten des Druckers im AMS stecken, werden dorthin verschoben. Nimmst du eine Spule bei laufendem Drucker heraus, kommt sie an ihren alten Ort zurück.":
-    "Creates a storage location for this AMS in the Filament tab. Spools that are in the AMS when the printer is switched off are moved there. If you take a spool out while the printer is running, it goes back to its previous location.",
+  "Legt im Filament-Tab einen Lagerort für das AMS dieses Druckers an. Spulen, die beim Ausschalten des Druckers im AMS stecken, werden dorthin verschoben, die Spule am externen Halter in den eigenen Lagerort «Drucker (extern)». Nimmst du eine Spule bei laufendem Drucker heraus, kommt sie an ihren alten Ort zurück.":
+    "Creates a storage location for this printer's AMS in the Filament tab. Spools that are in the AMS when the printer is switched off are moved there, the spool on the external holder goes to its own location \"Printer (external)\". If you take a spool out while the printer is running, it goes back to its previous location.",
   " · AMS von {0}": " · AMS of {0}",
+  " · externer Halter von {0}": " · external holder of {0}",
   "↩ aus {0}": "↩ from {0}",
   "Wie viele nach {0}?": "How many to {0}?",
   "Alle": "All",
@@ -622,4 +623,21 @@ Object.assign(I18N.en, {
   "Horizontal spiegeln": "Mirror horizontally",
   "Vertikal spiegeln": "Mirror vertically",
   "Neue externe Kameras erscheinen hier nach dem Speichern.": "New external cameras show up here after saving.",
+  // automatic filament system on Klipper printers (Qidi Box, Snapmaker U1)
+  "Automatisches Filamentsystem": "Automatic filament system",
+  "Automatisch erkennen (erkannt: {0})": "Detect automatically (found: {0})",
+  "Keines": "None",
+  "Zeigt, welche Spule in welchem Fach bzw. Werkzeugkopf steckt, und legt im Filament-Tab einen Lagerort dafür an. Spulen, die beim Ausschalten des Druckers darin stecken, werden dorthin verschoben; nimmst du eine bei laufendem Drucker heraus, kommt sie an ihren alten Ort zurück.":
+    "Shows which spool is in which slot or toolhead and creates a storage location for it in the Filament tab. Spools that are in it when the printer is switched off are moved there; if you take one out while the printer is running, it goes back to its previous location.",
+  "Werte von der Box selbst": "Values from the box itself",
+  "Box-Klima": "Box climate",
+  " · im Drucker {0}": " · in printer {0}",
+  // where the filament usage of a Bambu print comes from
+  "Filamentverbrauch ermitteln über": "Get filament usage from",
+  "Automatisch (Druckdatei, sonst Home Assistant, sonst AMS-Füllstand)": "Automatic (print file, else Home Assistant, else AMS level)",
+  "Druckdatei auf der SD-Karte (am genauesten)": "Print file on the SD card (most accurate)",
+  "Home Assistant (Bambu-Lab-Integration, auch für Cloud-Drucke)": "Home Assistant (Bambu Lab integration, also for cloud prints)",
+  "AMS-Füllstand (nur Bambu-Spulen, ungenau)": "AMS level (Bambu spools only, rough)",
+  "Die Druckdatei liest 3D-PrintDash nur, wenn eine SD-Karte im Drucker steckt. Home Assistant braucht die Bambu-Lab-Integration im Cloud-Modus (Sensor „Gewicht des Drucks“). Der AMS-Füllstand rechnet die Abnahme in Prozent in Gramm um (1 % ≈ 10 g bei 1-kg-Spulen).":
+    "3D-PrintDash can only read the print file if there is an SD card in the printer. Home Assistant needs the Bambu Lab integration in cloud mode (sensor \"Print weight\"). The AMS level turns the drop in percent into grams (1 % ≈ 10 g for 1 kg spools).",
 });

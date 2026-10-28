@@ -61,17 +61,28 @@ def add_materials(cfg: dict, names) -> list:
     return added
 
 
-def job_cost(cfg: dict, materials: list | None, total_g: float | None, share: float = 1.0):
+def has_price(cfg: dict, material: str) -> bool:
+    """True when the material has its own entry in the price list (e.g. "SNAPSPEED PLA")."""
+    norm = normalize(material)
+    return bool(norm) and any(normalize(k) == norm for k in settings(cfg)["materials"])
+
+
+def job_cost(cfg: dict, materials: list | None, total_g: float | None, share: float = 1.0,
+             spools: dict | None = None):
     """Returns (cost, materials scaled by share). Uses the default price when the
-    material split is unknown."""
+    material split is unknown. spools: {type in the print file: material of the loaded spool};
+    the spool's material is priced when it has its own price (print files only know "PLA")."""
     scaled = []
     cost = 0.0
+    spools = spools or {}
     if materials:
         for m in materials:
             g = float(m.get("g") or 0) * share
             if g <= 0:
                 continue
-            p = price_per_kg(cfg, m.get("type") or "")
+            kind = m.get("type") or ""
+            spool = spools.get(kind)
+            p = price_per_kg(cfg, spool if spool and has_price(cfg, spool) else kind)
             cost += g / 1000 * p
             name = m.get("type") or "?"
             same = next((x for x in scaled if x["type"] == name), None)
@@ -82,3 +93,22 @@ def job_cost(cfg: dict, materials: list | None, total_g: float | None, share: fl
     elif total_g:
         cost = float(total_g) * share / 1000 * float(settings(cfg).get("default_price_per_kg") or 0)
     return (round(cost, 2) if cost else None), scaled
+
+
+# density in g/cm³ per base material, for turning extruded length into grams
+DENSITY = {"PLA": 1.24, "PETG": 1.27, "PET": 1.38, "ABS": 1.04, "ASA": 1.07, "TPU": 1.21, "PC": 1.20,
+           "PA": 1.14, "PVA": 1.23, "HIPS": 1.04, "PP": 0.90, "PEBA": 1.01, "PPS": 1.35}
+
+
+def density(material: str) -> float:
+    m = normalize(material)
+    for key in sorted(DENSITY, key=len, reverse=True):
+        if m.startswith(key):
+            return DENSITY[key]
+    return 1.24
+
+
+def grams_from_length(mm: float, material: str = "", diameter: float = 1.75) -> float:
+    """Weight of a filament length: area of the strand × length × density."""
+    area_mm2 = 3.14159265 * (diameter / 2) ** 2
+    return mm * area_mm2 / 1000 * density(material)

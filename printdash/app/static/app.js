@@ -1479,6 +1479,19 @@ function roomItem(room) {
 }
 
 /* Bambu camera: directly from the printer, normally or in compatibility mode */
+/* automatic filament system of a Klipper printer (Qidi Box, Snapmaker U1 toolheads ...) */
+const FILAMENT_SYSTEMS = [["qidi_box", "Qidi Box"], ["snapmaker", "Snapmaker U1"]];
+function filamentSystemField(p) {
+  const live = (lastState?.printers || []).find((x) => x.id === p.id);
+  const found = live?.filament_system;
+  const auto = found && (p.filament_system || "auto") === "auto"
+    ? t("Automatisch erkennen (erkannt: {0})", found.name) : t("Automatisch erkennen");
+  return field(t("Automatisches Filamentsystem"), p, "filament_system", {
+    options: [["auto", auto], ...FILAMENT_SYSTEMS, ["none", t("Keines")]],
+    onchange: renderSettings, wide: true,
+    hint: t("Zeigt, welche Spule in welchem Fach bzw. Werkzeugkopf steckt, und legt im Filament-Tab einen Lagerort dafür an. Spulen, die beim Ausschalten des Druckers darin stecken, werden dorthin verschoben; nimmst du eine bei laufendem Drucker heraus, kommt sie an ihren alten Ort zurück.") });
+}
+
 /* mirror / rotate the image of each camera (printer cameras and external ones) */
 function orientText(o) {
   if (!o) return t("unverändert");
@@ -1562,14 +1575,14 @@ function amsSensorFields(p) {
     };
     const fields = el("div", { class: "fields" },
       field(t("Quelle"), p, "ams_source", {
-        options: [["ams", t("Werte vom AMS selbst")], ["ha", t("Eigener Sensor (Home Assistant)")]], onchange: render }));
+        options: [["ams", p.type === "bambu" ? t("Werte vom AMS selbst") : t("Werte von der Box selbst")], ["ha", t("Eigener Sensor (Home Assistant)")]], onchange: render }));
     if (p.ams_source === "ha") {
       fields.append(
         field(t("Temperatur"), p, "ams_temp_entity", { options: opt(climate?.temperature || [], p.ams_temp_entity) }),
         field(t("Luftfeuchtigkeit"), p, "ams_hum_entity", { options: opt(climate?.humidity || [], p.ams_hum_entity) }),
         field(t("Batterie"), p, "ams_bat_entity", { options: opt(climate?.battery || [], p.ams_bat_entity),
           hint: t("Listet auch andere %-Sensoren") }),
-        field(t("Anzeigename"), p, "ams_sensor_name", { placeholder: "AMS" }));
+        field(t("Anzeigename"), p, "ams_sensor_name", { placeholder: p.type === "bambu" ? "AMS" : "Box" }));
     }
     fields.append(field(t("Warnung ab Feuchte (%)"), p, "ams_hum_max", { type: "number", placeholder: "30" }));
     const extra = [];
@@ -1587,7 +1600,7 @@ function amsSensorFields(p) {
         } catch (e) { toast(e.message, "bad"); }
       } }, t("Sensoren vom Filament-Tab übernehmen"))));
     }
-    wrap.replaceChildren(el("h4", { class: "sub-head" }, t("AMS-Klima")), fields, ...extra);
+    wrap.replaceChildren(el("h4", { class: "sub-head" }, p.type === "bambu" ? t("AMS-Klima") : t("Box-Klima")), fields, ...extra);
   };
   if (climate === null) {
     api("api/ha/climate").then((r) => { climate = r; render(); }).catch(() => { climate = { available: false, temperature: [], humidity: [], battery: [] }; render(); });
@@ -1646,7 +1659,13 @@ function printerItem(p) {
       field(t("LAN-Zugangscode"), p, "access_code", { type: "password", hint: t("Am Drucker: Einstellungen → Netzwerk (WLAN)") }),
       field(t("Eingebaute Kamera verwenden"), p, "camera", { type: "checkbox", hint: "" }),
       field(t("AMS vorhanden"), p, "has_ams", { type: "checkbox",
-        hint: t("Legt im Filament-Tab einen Lagerort für dieses AMS an. Spulen, die beim Ausschalten des Druckers im AMS stecken, werden dorthin verschoben. Nimmst du eine Spule bei laufendem Drucker heraus, kommt sie an ihren alten Ort zurück.") }),
+        hint: t("Legt im Filament-Tab einen Lagerort für das AMS dieses Druckers an. Spulen, die beim Ausschalten des Druckers im AMS stecken, werden dorthin verschoben, die Spule am externen Halter in den eigenen Lagerort «Drucker (extern)». Nimmst du eine Spule bei laufendem Drucker heraus, kommt sie an ihren alten Ort zurück.") }),
+      field(t("Filamentverbrauch ermitteln über"), p, "usage_source", { wide: true, options: [
+        ["auto", t("Automatisch (Druckdatei, sonst Home Assistant, sonst AMS-Füllstand)")],
+        ["file", t("Druckdatei auf der SD-Karte (am genauesten)")],
+        ["ha", t("Home Assistant (Bambu-Lab-Integration, auch für Cloud-Drucke)")],
+        ["ams", t("AMS-Füllstand (nur Bambu-Spulen, ungenau)")]],
+        hint: t("Die Druckdatei liest 3D-PrintDash nur, wenn eine SD-Karte im Drucker steckt. Home Assistant braucht die Bambu-Lab-Integration im Cloud-Modus (Sensor „Gewicht des Drucks“). Der AMS-Füllstand rechnet die Abnahme in Prozent in Gramm um (1 % ≈ 10 g bei 1-kg-Spulen).") }),
       ...powerFields(), ...timelapseFields(), ...maintFields());
     item.append(cameraSourceFields(p));
     item.append(amsSensorFields(p));
@@ -1671,7 +1690,12 @@ function printerItem(p) {
       field(t("Licht aus: eigener G-Code"), p, "light_off_gcode", { placeholder: t("optional") }),
       ...powerFields(),
       field(t("Kamera-URL (optional)"), p, "camera_url", { placeholder: t("leer = automatisch von Moonraker"), wide: true }),
+      filamentSystemField(p),
       ...timelapseFields(), ...maintFields());
+    const live = (lastState?.printers || []).find((x) => x.id === p.id);
+    if ((p.filament_system || "auto") !== "none" && (p.filament_system === "qidi_box" || live?.filament_system?.key === "qidi_box")) {
+      item.append(amsSensorFields(p));
+    }
     item.append(el("div", { class: "row-btns" },
       el("button", { class: "btn", onclick: async () => {
         result.className = "probe-result"; result.textContent = t("Teste …");
@@ -1889,6 +1913,8 @@ let filData = null;
 let climate = null;
 let filTimer = null;
 const locs = () => filData?.locations || [];
+// display order: the locations of the printers (AMS, filament systems) first, then your own ones
+const shownLocs = () => [...locs().filter((l) => l.printer_id), ...locs().filter((l) => !l.printer_id)];
 const locById = (id) => locs().find((l) => l.id === id);
 const locName = (l) => (l ? l.name || t("Filamentlager") : "");
 // first location, or the first one marked "in the printer" (e.g. AMS)
@@ -1943,6 +1969,21 @@ function batteryChip(entity) {
     val === null ? "🔋 –" : `${val < 20 ? "🪫" : "🔋"} ${Math.round(val)} %`);
 }
 
+// storage locations without big gaps: each panel spans as many 4 px rows as its height needs
+const MASONRY_ROW = 4, MASONRY_GAP = 16;
+const masonryObserver = typeof ResizeObserver !== "undefined"
+  ? new ResizeObserver((entries) => entries.forEach((e) => fitMasonry(e.target))) : null;
+function fitMasonry(item) {
+  const h = item.getBoundingClientRect().height;
+  if (h) item.style.gridRowEnd = `span ${Math.ceil((h + MASONRY_GAP) / MASONRY_ROW)}`;
+}
+function masonry(wrap) {
+  if (!masonryObserver) return;  // very old browser: normal grid
+  masonryObserver.disconnect();
+  wrap.classList.add("masonry");
+  [...wrap.children].forEach((c) => { fitMasonry(c); masonryObserver.observe(c); });
+}
+
 function renderFilament() {
   const d = filData;
   // summary
@@ -1964,13 +2005,14 @@ function renderFilament() {
   wrap.innerHTML = "";
   wrap.append(printerPanel());
   wrap.append(dryerPanel());
-  locs().forEach((loc, idx) => wrap.append(locationPanel(loc, idx)));
+  shownLocs().forEach((loc, idx) => wrap.append(locationPanel(loc, idx)));
   wrap.append(el("div", { class: "row-btns" }, el("button", { class: "btn", onclick: async () => {
     const name = prompt(t("Name des neuen Lagerorts"));
     if (!name || !name.trim()) return;
     try { await api("api/filament/locations", { method: "POST", json: { name: name.trim() } }); loadFilament(); }
     catch (e) { toast(e.message, "bad"); }
   } }, t("+ Lagerort"))));
+  masonry(wrap);
   renderBrands();
   showFilSub(filSub);
 }
@@ -2104,7 +2146,9 @@ function locationPanel(loc, idx) {
   const panel = el("section", { class: "fil-loc" },
     el("header", { class: "fil-head" },
       el("div", {}, el("h3", {}, locName(loc)), el("span", { class: "note" }, tn(count, "{0} Spule", "{0} Spulen"),
-        loc.printer_id ? t(" · AMS von {0}", printerName(loc.printer_id)) : "")),
+        loc.printer_id ? (loc.external ? t(" · externer Halter von {0}", printerName(loc.printer_id))
+          : (lastState?.printers || []).find((x) => x.id === loc.printer_id)?.type === "moonraker"
+          ? t(" · im Drucker {0}", printerName(loc.printer_id)) : t(" · AMS von {0}", printerName(loc.printer_id))) : "")),
       el("div", { class: "sensors" },
         sensorChip("🌡", loc.temp_entity, "°C"),
         sensorChip("💧", loc.hum_entity, "%", Number(loc.hum_max) || null),
@@ -2130,10 +2174,13 @@ function locationPanel(loc, idx) {
     field(t("Batterie des Sensors"), draftLoc, "bat_entity", { options: bOpts }),
     field(t("Warnung ab Feuchte (%)"), draftLoc, "hum_max", { type: "number" })),
     ...(climate?.available ? [] : [el("p", { class: "note" }, t("Home Assistant nicht verbunden – Sensoren nicht verfügbar."))]));
+  const shown = shownLocs();
+  // moving stays within the group (printer locations / own locations)
+  const sameGroup = (j) => j >= 0 && j < shown.length && !!shown[j].printer_id === !!loc.printer_id;
   const move = async (dir) => {
-    const ids = locs().map((l) => l.id);
+    const ids = shown.map((l) => l.id);
     const j = idx + dir;
-    if (j < 0 || j >= ids.length) return;
+    if (!sameGroup(j)) return;
     [ids[idx], ids[j]] = [ids[j], ids[idx]];
     try { await api("api/filament/locations", { method: "PUT", json: { order: ids } }); loadFilament(); }
     catch (e) { toast(e.message, "bad"); }
@@ -2157,8 +2204,8 @@ function locationPanel(loc, idx) {
         try { await api(`api/filament/locations/${key}`, { method: "PUT", json: draftLoc }); toast(t("Gespeichert"), "ok"); loadFilament(); }
         catch (e) { toast(e.message, "bad"); }
       } }, t("Speichern")),
-      el("button", { class: "btn", disabled: idx === 0, title: t("Nach oben"), onclick: () => move(-1) }, "↑"),
-      el("button", { class: "btn", disabled: idx === locs().length - 1, title: t("Nach unten"), onclick: () => move(1) }, "↓"),
+      el("button", { class: "btn", disabled: !sameGroup(idx - 1), title: t("Nach oben"), onclick: () => move(-1) }, "↑"),
+      el("button", { class: "btn", disabled: !sameGroup(idx + 1), title: t("Nach unten"), onclick: () => move(1) }, "↓"),
       el("span", { class: "spacer" }),
       el("button", { class: "btn danger", disabled: !others.length,
         title: others.length ? "" : t("Der letzte Lagerort kann nicht gelöscht werden"),
@@ -2183,27 +2230,66 @@ function materialFamily(m) {
 
 // dropdown on a loaded slot: which stored spool is this?
 function assignSelect(pr, f) {
+  // own picker instead of <select>: shows a colour dot and the storage location of every spool
   const fam = materialFamily(f.type);
-  const label = (i) => `${[i.material, i.brand, i.color_name].filter(Boolean).join(" · ")}`;
-  const same = filData.items.filter((i) => materialFamily(i.material) === fam);
-  const other = filData.items.filter((i) => materialFamily(i.material) !== fam);
+  const hexOk = (c) => /^#[0-9a-f]{6}$/i.test(c || "");
+  const rgb = (c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+  const dist = (a, b) => (hexOk(a) && hexOk(b) ? Math.hypot(...rgb(a).map((v, i) => v - rgb(b)[i])) : 999);
+  // most similar colour first, so the spool that is probably loaded is at the top
+  const byColor = (a, b) => dist(a.color, f.color) - dist(b.color, f.color);
   const cur = f.manual ? (f.item_id || "none") : "";
-  const sel = el("select", { class: "assign-select", title: t("Welche Spule ist das?"), "aria-label": t("Spule zuordnen") },
-    el("option", { value: "", selected: cur === "" }, t("Automatisch erkennen")),
-    el("option", { value: "none", selected: cur === "none" }, t("Nicht im Bestand")),
-    same.length ? el("optgroup", { label: t("{0}-Spulen", fam) }, same.map((i) => el("option", { value: i.id, selected: cur === i.id }, label(i)))) : null,
-    other.length ? el("optgroup", { label: t("Andere") }, other.map((i) => el("option", { value: i.id, selected: cur === i.id }, label(i)))) : null);
-  sel.addEventListener("change", async () => {
+  // only spools you have in stock (and the one assigned right now)
+  const stock = filData.items.filter((i) => (Number(i.count) || 0) > 0 || i.id === cur);
+  const same = stock.filter((i) => materialFamily(i.material) === fam).sort(byColor);
+  const other = stock.filter((i) => materialFamily(i.material) !== fam).sort(byColor);
+  const dot = (color) => el("span", { class: "dot", style: hexOk(color) ? `background:${color}` : "" });
+  const name = (i) => [i.material, i.brand, i.color_name].filter(Boolean).join(" · ");
+  const curItem = filData.items.find((i) => i.id === cur);
+  const btn = el("button", { type: "button", class: "assign-pick", title: t("Welche Spule ist das?"),
+    "aria-label": t("Spule zuordnen"), "aria-haspopup": "listbox" },
+    curItem ? dot(curItem.color) : null,
+    el("span", { class: "assign-pick-text" },
+      cur === "" ? t("Automatisch erkennen") : cur === "none" ? t("Nicht im Bestand")
+        : curItem ? name(curItem) : t("Spule")),
+    el("span", { class: "assign-caret" }, "▾"));
+  const menu = el("div", { class: "assign-menu", role: "listbox", hidden: true });
+  const save = async (value) => {
+    close();
     try {
-      await api("api/filament/assign", { method: "PUT", json: { printer_id: pr.printer_id, slot: f.slot, item_id: sel.value } });
-      toast(sel.value ? t("Zuordnung gespeichert – gilt bis die Spule entladen wird") : t("Wieder automatisch"), "ok");
+      await api("api/filament/assign", { method: "PUT", json: { printer_id: pr.printer_id, slot: f.slot, item_id: value } });
+      toast(value ? t("Zuordnung gespeichert – gilt bis die Spule entladen wird") : t("Wieder automatisch"), "ok");
       loadFilament();
     } catch (e) { toast(e.message, "bad"); }
+  };
+  const option = (value, text, color, withDot) => el("button", {
+    type: "button", role: "option", class: `assign-opt${value === cur ? " selected" : ""}`,
+    "aria-selected": value === cur ? "true" : "false", onclick: () => save(value) },
+    withDot ? dot(color) : el("span", { class: "dot none" }), el("span", { class: "assign-opt-text" }, text));
+  menu.append(
+    option("", t("Automatisch erkennen"), null, false),
+    option("none", t("Nicht im Bestand"), null, false));
+  if (same.length) menu.append(el("div", { class: "assign-group" }, t("{0}-Spulen", fam)), ...same.map((i) => option(i.id, name(i), i.color, true)));
+  if (other.length) menu.append(el("div", { class: "assign-group" }, t("Andere")), ...other.map((i) => option(i.id, name(i), i.color, true)));
+  const onDoc = (e) => { if (!wrap.contains(e.target)) close(); };
+  const onKey = (e) => { if (e.key === "Escape") { close(); btn.focus(); } };
+  function close() {
+    menu.hidden = true;
+    document.removeEventListener("click", onDoc, true);
+    document.removeEventListener("keydown", onKey);
+  }
+  btn.addEventListener("click", () => {
+    if (!menu.hidden) { close(); return; }
+    menu.hidden = false;
+    document.addEventListener("click", onDoc, true);
+    document.addEventListener("keydown", onKey);
+    (menu.querySelector(".selected") || menu.querySelector(".assign-opt"))?.focus();
   });
+  const wrap = el("div", { class: "assign-wrap" }, btn, menu);
+  const sel = wrap;
   const HOW = { uid: t("Kennung"), color: t("Material + Farbe"), family_color: t("Materialfamilie + Farbe"),
     memory: t("zuletzt in diesem Slot") };
   const how = f.manual ? t("✋ von Hand zugeordnet") : HOW[f.how] ? t("erkannt über {0}", HOW[f.how]) : t("nicht erkannt");
-  return el("label", { class: "assign" }, sel, el("span", { class: "how" }, how));
+  return el("div", { class: "assign" }, sel, el("span", { class: "how" }, how));
 }
 
 function printerPanel() {
@@ -2222,7 +2308,9 @@ function printerPanel() {
       const where = `${pr.printer} · ${slotName(f.slot)}`;
       const fill = f.remain != null ? f.remain / 100 : 1;
       if (item) {
-        const home = locName(locById(item.location)) || item.location;
+        // where the spool goes when taken out: its home if it is parked in the printer's AMS / box
+        const homeId = item.return_to && locById(item.return_to) ? item.return_to : item.location;
+        const home = locName(locById(homeId)) || homeId;
         list.append(el("div", { class: `spool loaded${f.active ? " active" : ""}` },
           spoolIcon(item.color || f.color, { size: 38, fill }),
           el("div", { class: "spool-main" },

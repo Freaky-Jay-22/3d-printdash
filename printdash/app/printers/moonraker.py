@@ -15,6 +15,7 @@ import httpx
 
 from ..config import redact
 from ..i18n import t
+from . import qidi
 from .base import BasePrinter, PrinterError
 
 log = logging.getLogger("printdash.moonraker")
@@ -26,6 +27,13 @@ PRINT_STATE_MAP = {
     "complete": "finished",
     "cancelled": "cancelled",
     "error": "failed",
+}
+# Automatic filament systems of Klipper printers: which spool is in which slot / toolhead.
+# key -> (name shown in the settings, prefix of the storage location). More can be added here
+# (e.g. Happy Hare / ERCF, AFC / Box Turtle) together with a detection and a reader.
+FILAMENT_SYSTEMS = {
+    "qidi_box": ("Qidi Box", "Qidi Box"),
+    "snapmaker": ("Snapmaker U1", "Werkzeugköpfe"),
 }
 LIGHT_PREFIXES = ("output_pin ", "led ", "neopixel ", "dotstar ", "pca9533 ", "pca9632 ")
 
@@ -69,6 +77,9 @@ class MoonrakerPrinter(BasePrinter):
         self.http = httpx.AsyncClient(base_url=url or "http://invalid", headers=headers, timeout=10)
         self.objects: list = []
         self.extruders: list = []
+        self.qidi_box = False
+        self.detected_system = None
+        self.box_sensors: list = []
         self.chamber_sensor = None
         self.status: dict = {}
         self.online = False
@@ -112,6 +123,17 @@ class MoonrakerPrinter(BasePrinter):
         self.objects = (await self._get("/printer/objects/list")).get("objects", [])
         self.extruders = sorted(o for o in self.objects if re.fullmatch(r"extruder\d*", o))
         self.chamber_sensor = self._pick_chamber_sensor()
+        # automatic filament system: setting "filament_system" = auto (default) | none | <key>
+        if qidi.detect(self.objects):
+            self.detected_system = "qidi_box"
+        elif "print_task_config" in self.objects or "filament_detect" in self.objects:
+            self.detected_system = "snapmaker"
+        else:
+            self.detected_system = None
+        self.qidi_box = self.system_key() == "qidi_box"  # Qidi Box: slots are in save_variables
+        # Qidi Box climate (temperature + humidity), one sensor per box
+        self.box_sensors = sorted(o for o in self.objects if re.fullmatch(r"aht20_f heater_box\d+", o)) \
+            if self.qidi_box else []
         try:
             cams = (await self._get("/server/webcams/list")).get("webcams", [])
             self.webcams = [c for c in cams if c.get("enabled", True)]
@@ -134,7 +156,8 @@ class MoonrakerPrinter(BasePrinter):
             return configured
         for word in ("chamber", "cavity", "enclosure", "kammer", "box"):
             for o in self.temp_sensors():
-                if word in o.split(" ", 1)[-1].lower():
+                name = o.split(" ", 1)[-1].lower()
+                if word in name and not re.search(r"box\d", name):  # not the Qidi Box heater
                     return o
         return None
 
@@ -171,6 +194,11 @@ class MoonrakerPrinter(BasePrinter):
                 for extra in ("print_task_config", "filament_detect"):
                     if extra in self.objects:
                         objs.append(extra)
+                if getattr(self, "qidi_box", False):
+                    # box slots; multi_color_controller / box_extras only for the debug view
+                    objs += [o for o in ("save_variables", "multi_color_controller", "box_extras")
+                             if o in self.objects]
+                    objs += self.box_sensors
                 res = await self._post(
                     "/printer/objects/query", json={"objects": {o: None for o in objs}}
                 )
@@ -297,6 +325,8 @@ class MoonrakerPrinter(BasePrinter):
 
         if st["state"] in ("printing", "paused", "finished", "failed", "cancelled"):
             st["filename"] = ps.get("filename")
+            # filament really extruded in this print (mm), used for cancelled prints
+            st["filament_used_mm"] = _to_float(ps.get("filament_used"))
             progress = s.get("display_status", {}).get("progress") or \
                 s.get("virtual_sdcard", {}).get("progress") or 0
             st["progress"] = round(progress * 100) if st["state"] != "finished" else 100
@@ -337,6 +367,15 @@ class MoonrakerPrinter(BasePrinter):
         st["temps"] = temps
 
         st["filaments"] = self._filaments(s, active)
+        st["filament_system"] = self.filament_system()
+        if self.box_sensors:
+            # Qidi Box climate, shown like the AMS of a Bambu printer
+            st["ams"] = [{
+                "name": f"Box {i + 1}" if len(self.box_sensors) > 1 else "Qidi Box",
+                "temp": _to_float(s.get(o, {}).get("temperature")),
+                "hum": _to_float(s.get(o, {}).get("humidity")),
+                "hum_level": None,
+            } for i, o in enumerate(self.box_sensors)]
         st["versions"] = self.versions
 
         light_obj = self.light_object()
@@ -350,8 +389,31 @@ class MoonrakerPrinter(BasePrinter):
             st["light"] = False  # unknown state, but switchable
         return st
 
+    def system_key(self) -> str | None:
+        """The filament system in use: chosen in the settings, or detected ("auto")."""
+        chosen = self.cfg.get("filament_system") or "auto"
+        if chosen == "none":
+            return None
+        if chosen in FILAMENT_SYSTEMS:
+            return chosen
+        return self.detected_system
+
+    def filament_system(self) -> dict | None:
+        key = self.system_key()
+        if not key:
+            return None
+        name, label = FILAMENT_SYSTEMS[key]
+        # label = name of the storage location, in the language set in 3D-PrintDash
+        return {"key": key, "name": name, "label": t(label)}
+
     def _filaments(self, s: dict, active_extruder) -> list:
-        """Loaded filament per toolhead (Snapmaker U1: print_task_config / filament_detect)."""
+        """Loaded filament per toolhead (Snapmaker U1: print_task_config / filament_detect)
+        or per box slot (Qidi Box: save_variables)."""
+        key = self.system_key()
+        if key == "qidi_box":
+            return qidi.filaments((s.get("save_variables") or {}).get("variables") or {})
+        if key != "snapmaker":
+            return []
         ptc = s.get("print_task_config") or {}
         rfid = (s.get("filament_detect") or {}).get("info") or []
         if not ptc and not rfid:

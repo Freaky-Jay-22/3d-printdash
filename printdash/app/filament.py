@@ -21,8 +21,9 @@ MAX_LOCATIONS = 30
 
 def new_location(name: str = "", **extra) -> dict:
     # printer_id: location that belongs to a printer's AMS (created automatically)
+    # external: that printer's location for the spool on the external holder ("Ext" slot)
     loc = {"id": secrets.token_hex(4), "name": name, "temp_entity": "", "hum_entity": "",
-           "bat_entity": "", "hum_max": 40, "in_printer": False, "printer_id": ""}
+           "bat_entity": "", "hum_max": 40, "in_printer": False, "printer_id": "", "external": False}
     loc.update(extra)
     return loc
 
@@ -309,11 +310,20 @@ def delete_location(key: str, move_to: str | None = None) -> None:
 
 
 # -- which stored spools are loaded in a printer ---------------------------------
+# plain material types, to find the base in names like "SNAPSPEED PLA" or "Silk PLA"
+BASE_TYPES = {"PLA", "PETG", "PET", "PCTG", "ABS", "ASA", "TPU", "TPE", "PC", "PA", "PAHT", "PA6", "PA12",
+              "PVA", "BVOH", "HIPS", "PP", "PE", "PEBA", "PPS", "PVB", "PEEK", "PEI"}
+
+
 def _base(material: str) -> str:
-    """'PLA Basic' -> 'PLA', 'PETG HF' -> 'PETG', 'PETG CF' -> 'PETG-CF'."""
+    """'PLA Basic' -> 'PLA', 'PETG HF' -> 'PETG', 'PETG CF' -> 'PETG-CF', 'SNAPSPEED PLA' -> 'PLA'."""
     tokens = [t for t in re.split(r"[\s_/-]+", str(material or "").upper()) if t]
     if not tokens:
         return ""
+    if tokens[0] not in BASE_TYPES:
+        first = next((i for i, t in enumerate(tokens) if t in BASE_TYPES), None)
+        if first:
+            tokens = tokens[first:]
     if any(t in ("CF", "GF") for t in tokens[1:]):
         return f"{tokens[0]}-{'CF' if 'CF' in tokens[1:] else 'GF'}"
     return tokens[0]
@@ -451,7 +461,7 @@ def match(data: dict, loaded: list, reserved: dict | None = None) -> dict:
     return match_loaded(
         data["items"], loaded, data.get("assign"), reserved,
         [loc["id"] for loc in data["locations"] if loc.get("in_printer")],
-        {loc["printer_id"]: loc["id"] for loc in data["locations"] if loc.get("printer_id")},
+        {loc["printer_id"]: loc["id"] for loc in data["locations"] if loc.get("printer_id") and not loc.get("external")},
         data.get("slot_memory"))
 
 
@@ -490,34 +500,78 @@ def use_filament(item_id: str, grams: float, printer_id: str | None = None, fil:
 
 
 # -- AMS of a printer: spools stay there while the printer is off ----------------------
+EXTERNAL_SLOT = "Ext"
+
+
 def ams_location(data: dict, printer_id: str) -> dict | None:
-    return next((loc for loc in data["locations"] if loc.get("printer_id") == printer_id), None)
+    return next((loc for loc in data["locations"]
+                 if loc.get("printer_id") == printer_id and not loc.get("external")), None)
+
+
+def ext_location(data: dict, printer_id: str) -> dict | None:
+    return next((loc for loc in data["locations"]
+                 if loc.get("printer_id") == printer_id and loc.get("external")), None)
+
+
+def _add_ext_location(data: dict, printer_id: str, printer_name: str) -> dict | None:
+    if not printer_id or ext_location(data, printer_id) or len(data["locations"]) >= MAX_LOCATIONS:
+        return None
+    loc = new_location(t("{printer} (extern)", printer=printer_name or "Drucker"),
+                       in_printer=True, printer_id=printer_id, external=True)
+    data["locations"].append(loc)
+    return loc
+
+
+@_transaction
+def ensure_ext_location(printer_id: str, printer_name: str) -> dict | None:
+    """Own storage location for the spool on the external holder (created once)."""
+    data = load()
+    loc = _add_ext_location(data, printer_id, printer_name)
+    if loc:
+        save(data)
+    return loc
 
 
 @_transaction
 def ensure_printer_locations(printers: list) -> list:
-    """Create a storage location for every Bambu printer with "AMS vorhanden".
+    """Create a storage location for every Bambu printer with "AMS vorhanden", and one for the
+    external spool of every Bambu printer.
+    (Klipper printers get theirs from ensure_box_location() once their filament system is detected.)
     An old unlinked AMS location (e.g. the former fixed "ams") is taken over instead."""
     data = load()
     created = []
     for p in printers:
-        if p.get("type") != "bambu" or not p.get("has_ams") or not p.get("id"):
+        if p.get("type") != "bambu" or not p.get("id"):
             continue
-        if ams_location(data, p["id"]):
-            continue
-        free = next((loc for loc in data["locations"] if loc.get("in_printer") and not loc.get("printer_id")), None)
-        if free:
-            free["printer_id"] = p["id"]
-            created.append(free)
-            continue
-        if len(data["locations"]) >= MAX_LOCATIONS:
-            continue
-        loc = new_location(f"AMS – {p.get('name') or 'Bambu'}", in_printer=True, printer_id=p["id"], hum_max=30)
-        data["locations"].append(loc)
-        created.append(loc)
+        if p.get("has_ams") and not ams_location(data, p["id"]):
+            free = next((loc for loc in data["locations"] if loc.get("in_printer") and not loc.get("printer_id")), None)
+            if free:
+                free["printer_id"] = p["id"]
+                created.append(free)
+            elif len(data["locations"]) < MAX_LOCATIONS:
+                loc = new_location(t("{printer} (AMS)", printer=p.get("name") or "Bambu"),
+                                   in_printer=True, printer_id=p["id"], hum_max=30)
+                data["locations"].append(loc)
+                created.append(loc)
+        ext = _add_ext_location(data, p["id"], p.get("name") or "Bambu")
+        if ext:
+            created.append(ext)
     if created:
         save(data)
     return created
+
+
+@_transaction
+def ensure_box_location(printer_id: str, label: str, printer_name: str) -> dict | None:
+    """Storage location for the automatic filament system of a Klipper printer (e.g. Qidi Box).
+    Created once when the system is detected; returns the new location or None."""
+    data = load()
+    if not printer_id or ams_location(data, printer_id) or len(data["locations"]) >= MAX_LOCATIONS:
+        return None
+    loc = new_location(f"{label} – {printer_name or 'Klipper'}", in_printer=True, printer_id=printer_id, hum_max=30)
+    data["locations"].append(loc)
+    save(data)
+    return loc
 
 
 _TWIN_KEYS = ("brand", "material", "color_name", "condition", "uid", "spool_g", "remaining_g", "note")
@@ -585,24 +639,28 @@ def move_item(item_id: str, to_loc: str, qty) -> dict:
 
 @_transaction
 def park_in_ams(printer_id: str, slot_items: dict) -> int:
-    """Printer was switched off: spools detected in its AMS move to its AMS location.
+    """Printer was switched off: spools detected in its AMS move to its AMS location,
+    the spool on the external holder to its own location (or the AMS location if there is none).
     slot_items = {slot: item_id}. Returns the number of spools moved."""
     data = load()
-    loc = ams_location(data, printer_id)
-    if not loc:
-        return 0
+    ams, ext = ams_location(data, printer_id), ext_location(data, printer_id)
     per_item = {}
     for slot, item_id in slot_items.items():
-        if item_id and str(slot) != "Ext":
-            per_item[item_id] = per_item.get(item_id, 0) + 1
+        loc = (ext or ams) if str(slot) == EXTERNAL_SLOT else ams
+        if item_id and loc:
+            key = (item_id, loc["id"])
+            per_item[key] = per_item.get(key, 0) + 1
     moved = 0
     by_id = {i["id"]: i for i in data["items"]}
-    for item_id, n in per_item.items():
+    for (item_id, loc_id), n in per_item.items():
         item = by_id.get(item_id)
-        if not item or item.get("location") == loc["id"]:
+        if not item or item.get("location") == loc_id:
             continue
         origin = item.get("location")
-        target = _move_units(data, item, n, loc["id"], origin)
+        if origin in {x["id"] for x in (ams, ext) if x}:
+            origin = item.get("return_to") or origin  # from AMS to external or back: keep the real home
+        target = _move_units(data, item, n, loc_id, origin)
+        by_id[target["id"]] = target
         moved += n
         for slot, iid in slot_items.items():  # manual assignments follow the spool
             a = (data.get("assign") or {}).get(slot_key(printer_id, slot))
@@ -617,9 +675,9 @@ def park_in_ams(printer_id: str, slot_items: dict) -> int:
 def unpark(printer_id: str, item_id: str) -> bool:
     """A spool was taken out of the AMS while the printer runs: back to where it came from."""
     data = load()
-    loc = ams_location(data, printer_id)
+    locs = {x["id"] for x in (ams_location(data, printer_id), ext_location(data, printer_id)) if x}
     item = next((i for i in data["items"] if i["id"] == item_id), None)
-    if not loc or not item or item.get("location") != loc["id"]:
+    if not item or item.get("location") not in locs:
         return False
     home = item.get("return_to")
     if not home or not location(data, home):

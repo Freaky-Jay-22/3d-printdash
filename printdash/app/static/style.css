@@ -227,7 +227,9 @@ body.detail-open { overflow: hidden; }
 .detail-info span { color: var(--muted); font-size: 12px; }
 .detail-info b { font-weight: 600; font-variant-numeric: tabular-nums; }
 .detail-jobs { display: flex; flex-direction: column; gap: 8px; }
-.mini-job { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: center; font-size: 13px; }
+.mini-job { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 13px; }
+.mini-job > div:nth-child(2) { min-width: 0; }  /* long file names end with "…" instead of pushing the badge */
+.mini-job > .badge { justify-self: end; white-space: nowrap; }
 .mini-job img, .mini-job .noimg { width: 64px; aspect-ratio: 16/9; object-fit: cover; border-radius: 5px; background: #000; cursor: zoom-in; }
 .mini-job .title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mini-job .sub { color: var(--muted); font-size: 12px; }
@@ -263,6 +265,8 @@ body.detail-open { overflow: hidden; }
 /* filament tab */
 #filament-summary { margin-bottom: 14px; }
 .fil-locations { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 560px), 1fr)); gap: 16px; align-items: start; }
+/* masonry: small rows, every panel spans as many as its height needs (set in app.js) -> no big gaps */
+.fil-locations.masonry { grid-auto-rows: 4px; row-gap: 0; }
 .fil-loc { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
 .fil-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .fil-head h3 { margin: 0; font-size: 17px; }
@@ -359,7 +363,23 @@ body.detail-open { overflow: hidden; }
 
 /* manual slot assignment */
 .assign { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
-.spool .assign-select { font-size: 12.5px; padding: 4px 6px; width: 260px; max-width: 100%; grid-column: auto; }
+.assign-wrap { position: relative; width: 280px; max-width: 100%; }
+.assign-pick { display: flex; align-items: center; gap: 8px; width: 100%; padding: 5px 8px; font: inherit; font-size: 12.5px;
+  color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; text-align: left; }
+.assign-pick:hover { border-color: var(--accent); }
+.assign-pick-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.assign-caret { color: var(--muted); }
+.assign-menu { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; width: max(100%, 320px); max-width: 90vw;
+  max-height: 320px; overflow-y: auto; padding: 4px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, .35); }
+.assign-group { padding: 8px 8px 4px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.assign-opt { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 8px; font: inherit; font-size: 13px;
+  color: var(--text); background: none; border: 0; border-radius: 6px; cursor: pointer; text-align: left; }
+.assign-opt:hover, .assign-opt:focus-visible { background: var(--panel-2); outline: none; }
+.assign-opt.selected { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.assign-opt-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dot { flex: none; width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(127, 127, 127, .6); }
+.dot.none { border-style: dashed; background: none; }
 .assign .how { font-size: 12px; }
 
 /* AMS climate settings block */

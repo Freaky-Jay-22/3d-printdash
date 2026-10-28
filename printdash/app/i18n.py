@@ -27,6 +27,11 @@ def t(text: str, **kw) -> str:
 
 MESSAGES = {
     "en": {
+        # storage locations of a Bambu printer (AMS / external spool)
+        "{printer} (AMS)": "{printer} (AMS)",
+        "{printer} (extern)": "{printer} (external)",
+        # storage location of a Klipper filament system (Snapmaker U1)
+        "Werkzeugköpfe": "Toolheads",
         # login / general
         "Anmeldung erforderlich": "Login required",
         "Zu viele Fehlversuche. Bitte in {min} min erneut versuchen.": "Too many failed attempts. Please try again in {min} min.",
