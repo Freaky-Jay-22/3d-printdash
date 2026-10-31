@@ -100,6 +100,16 @@ def describe(fid) -> tuple:
     return PREFIX.get(fid[:3], fid), "", ""
 
 
+def _filled(value) -> bool:
+    """A slotN value that means "filament in this slot" (anything but 0 / empty)."""
+    if isinstance(value, bool):
+        return value
+    try:
+        return int(float(value)) != 0
+    except (TypeError, ValueError):
+        return False
+
+
 def filaments(variables: dict) -> list:
     """Loaded filament per box slot (and the external spool), in the app's format."""
     v = variables or {}
@@ -116,7 +126,9 @@ def filaments(variables: dict) -> list:
         material, vendor, name = describe(fid)
         if i == EXTERNAL_SLOT and not material:
             continue   # no external spool set
-        present = v.get(f"slot{i}") in (1, True, "1") or (i == EXTERNAL_SLOT and bool(material))
+        # slotN: 0 = empty, other values = filament there (it changes while the filament is
+        # loaded into the toolhead, e.g. during a print). The loaded slot always counts as present.
+        present = _filled(v.get(f"slot{i}")) or last == f"slot{i}" or (i == EXTERNAL_SLOT and bool(material))
         if not present:
             material, vendor, name = "", "", ""
         out.append({

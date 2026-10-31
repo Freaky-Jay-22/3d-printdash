@@ -80,6 +80,10 @@ function fmtFilament(g, m, cost) {
   if (!g && !m) return "";
   return [g ? `${Math.round(g)} g` : "", m ? `${m.toFixed(1)} m` : "", fmtCost(cost)].filter(Boolean).join(" · ");
 }
+function fmtEnergy(kwh, cost) {
+  if (kwh === null || kwh === undefined) return "";
+  return [`⚡ ${Number(kwh).toFixed(kwh < 10 ? 2 : 1)} kWh`, fmtCost(cost)].filter(Boolean).join(" · ");
+}
 function fmtMaterials(list) {
   return (list || []).map((x) => `${x.type} ${Math.round(x.g)} g`).join(" · ");
 }
@@ -587,6 +591,11 @@ function updateCard(c, p) {
     c.temps.append(el("span", { class: "chip ams", title: `${a.name} · ${own ? t("eigener Sensor (Home Assistant)") : t("Werte vom AMS")}` },
       el("b", {}, a.name), ...parts));
   }
+  if (p.power?.watts != null && p.power.on !== false) {
+    const w = p.power.watts;
+    c.temps.append(el("span", { class: "chip", title: t("Aktuelle Leistung der Steckdose") },
+      `⚡ ${w >= 1000 ? (w / 1000).toFixed(2) + " kW" : Math.round(w) + " W"}`));
+  }
   c.temps.hidden = !c.temps.childElementCount;
 
   // filaments (AMS)
@@ -884,13 +893,15 @@ async function loadHistory() {
   const total = done.reduce((s, j) => s + (j.duration_s || 0), 0);
   const grams = done.reduce((s, j) => s + (j.filament_g || 0), 0);
   const money = done.reduce((s, j) => s + (j.cost || 0), 0);
+  const power = done.reduce((s, j) => s + (j.energy_cost || 0), 0);
   const stats = $("#history-stats");
   stats.innerHTML = "";
   const stat = (v, l) => el("div", { class: "stat" }, el("b", {}, v), el("span", {}, l));
   stats.append(stat(done.length, t("Drucke")), stat(done.length ? `${Math.round((ok / done.length) * 100)} %` : "–", t("erfolgreich")),
     stat(failed, t("fehlgeschlagen")), stat(fmtDuration(total), t("Druckzeit")),
     stat(grams >= 1000 ? `${(grams / 1000).toFixed(2)} kg` : `${Math.round(grams)} g`, t("Filament")),
-    ...(money ? [stat(fmtCost(money), t("Filamentkosten"))] : []));
+    ...(money ? [stat(fmtCost(money), t("Filamentkosten"))] : []),
+    ...(power ? [stat(fmtCost(power), t("Stromkosten"))] : []));
 
   const list = $("#history-list");
   list.innerHTML = "";
@@ -912,7 +923,7 @@ async function loadHistory() {
         el("div", { class: "title", title: j.filename || "" }, j.filename || t("Unbekannte Datei")),
         el("div", { class: "sub" }, [`${j.printer_name}`, fmtDate(j.started_at),
           j.status === "running" ? t("läuft seit ") + fmtDuration(Date.now() / 1000 - j.started_at) : fmtDuration(j.duration_s),
-          fmtFilament(j.filament_g, j.filament_m, j.cost)].filter(Boolean).join(" · ")),
+          fmtFilament(j.filament_g, j.filament_m, j.cost), fmtEnergy(j.energy_kwh, j.energy_cost)].filter(Boolean).join(" · ")),
         j.materials?.length > 1 ? el("div", { class: "sub" }, fmtMaterials(j.materials)) : null,
         j.deducted?.length ? el("div", { class: "sub" }, t("🧵 abgezogen: {0}",
           j.deducted.map((d) => t("{0} {1} g (noch {2} g)", d.label, Math.round(d.g), Math.round(d.left))).join(", "))) : null,
@@ -952,7 +963,7 @@ async function loadStats() {
   const add = (map, key, j, label) => {
     const r = map.get(key) || { label: label ?? key, n: 0, ok: 0, s: 0, g: 0, cost: 0 };
     r.n++; if (j.status === "finished") r.ok++;
-    r.s += j.duration_s || 0; r.g += j.filament_g || 0; r.cost += j.cost || 0;
+    r.s += j.duration_s || 0; r.g += j.filament_g || 0; r.cost += (j.cost || 0) + (j.energy_cost || 0);
     map.set(key, r);
   };
   // last 12 months
@@ -1004,13 +1015,13 @@ async function loadStats() {
 /* ---------- settings ---------- */
 let draft = null;
 let haServices = null;
-let haEntities = { available: false, entities: [] };
+let haEntities = { available: false, entities: [], energy: [] };
 
 async function loadSettings() {
   try {
     draft = await api("api/config");
     if (haServices === null) haServices = await api("api/notify/services").catch(() => ({ available: false, services: [] }));
-    haEntities = await api("api/ha/entities").catch(() => ({ available: false, entities: [] }));
+    haEntities = await api("api/ha/entities").catch(() => ({ available: false, entities: [], energy: [] }));
   } catch (e) { toast(e.message, "bad"); return; }
   renderSettings();
 }
@@ -1027,6 +1038,7 @@ function field(label, obj, key, { type = "text", placeholder = "", hint = "", wi
     input = el("select", {}, options.map(([v, l]) => el("option", { value: v, selected: String(obj[key] ?? "") === String(v) }, l)));
   } else {
     input = el("input", { type, placeholder, value: obj[key] ?? "", autocomplete: "off" });
+    if (type === "number") input.step = "any";   // allow decimals, e.g. 0.27 per kWh
   }
   input.addEventListener("input", () => { obj[key] = type === "number" ? Number(input.value) : input.value; });
   input.addEventListener("change", () => { obj[key] = type === "number" ? Number(input.value) : input.value; onchange?.(); });
@@ -1227,7 +1239,7 @@ function priceSection() {
   };
   render();
   return el("div", { class: "settings-section" },
-    el("h3", {}, t("Filamentpreise")),
+    el("h3", {}, t("Preise")),
     el("p", { class: "hint" }, t("Preis pro kg je Material. Varianten wie „PLA Basic“ oder „PETG HF“ zählen zum Grundmaterial, „PETG CF“ zu PETG-CF. Alles andere nutzt den Standardpreis. Neue Materialien unter Filament → Marken erscheinen hier automatisch. Die Kosten werden beim Druckende gespeichert.")),
     list,
     el("div", { class: "row-btns" },
@@ -1249,6 +1261,8 @@ function priceSection() {
       } }, t("Aus Marken übernehmen"))),
     el("div", { class: "fields", style: "margin-top:12px" },
       field(t("Standardpreis pro kg (andere Materialien)"), c, "default_price_per_kg", { type: "number" }),
+      field(t("Strompreis pro kWh"), c, "electricity_price_per_kwh", { type: "number", placeholder: "0",
+        hint: t("Für die Stromkosten pro Druck (Energiezähler der Steckdose, Einstellungen → Drucker). 0 = aus.") }),
       currencyField(c, render)));
 }
 
@@ -1648,8 +1662,16 @@ function printerItem(p) {
       haEntities.available
         ? field(t("Steckdose (Home Assistant)"), p, "power_entity", { options: opts })
         : field(t("Steckdose (Home Assistant)"), p, "power_entity", { placeholder: "switch.drucker", hint: t("Home Assistant nicht verbunden") }),
+      haEntities.available
+        ? field(t("Energiezähler (Stromkosten)"), p, "energy_entity", { options: [
+            ["", t("Automatisch (Zähler der Steckdose)")], ["none", t("Keiner")],
+            ...(haEntities.energy || []).map((e) => [e.entity_id, `${e.name} (${e.entity_id})`]),
+            ...(p.energy_entity && p.energy_entity !== "none" && !(haEntities.energy || []).some((e) => e.entity_id === p.energy_entity)
+              ? [[p.energy_entity, p.energy_entity]] : [])],
+            hint: t("Misst den Strom pro Druck. Den Strompreis stellst du unter Preise ein.") })
+        : null,
       field(t("Nach Druckende ausschalten (Min.)"), p, "auto_off_minutes", { type: "number", placeholder: t("0 = nie"), hint: t("Erst wenn Düse und Bett unter 50 °C sind") }),
-    ];
+    ].filter(Boolean);
   };
   if (p.type === "bambu") {
     fields.append(
@@ -1865,7 +1887,8 @@ function renderDetail() {
   }
   if (p.job?.weight_g || p.job?.length_m) rows.push([t("Filament (Druck)"), fmtFilament(p.job.weight_g, p.job.length_m, p.job.cost)]);
   if (p.job?.materials?.length) rows.push([t("Materialien"), fmtMaterials(p.job.materials)]);
-  if (p.power) rows.push([t("Steckdose"), p.power.on ? t("ein") : p.power.on === false ? t("aus") : t("unbekannt")]);
+  if (p.power) rows.push([t("Steckdose"), (p.power.on ? t("ein") : p.power.on === false ? t("aus") : t("unbekannt"))
+    + (p.power.watts != null && p.power.on !== false ? ` · ${Math.round(p.power.watts)} W` : "")]);
   if (p.model) rows.push([t("Modell"), p.model]);
   for (const v of p.versions || []) rows.push([t(v.label), v.value]);
   rows.push([t("Verbindung"), p.online ? "online" : "offline"]);

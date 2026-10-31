@@ -74,6 +74,81 @@ async def power_entities() -> list:
     return out
 
 
+# -- energy meters (smart plugs with energy measurement) -------------------------
+ENERGY_UNITS = {"wh": 0.001, "kwh": 1.0, "mwh": 1000.0}
+_ENTITY_ID = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
+
+
+async def energy_sensors(states: list | None = None) -> list:
+    """Energy meters (kWh / Wh) for the settings dropdown."""
+    states = states if states is not None else await _request("GET", "/states")
+    out = []
+    for s in states:
+        eid = s["entity_id"]
+        attrs = s.get("attributes", {})
+        unit = str(attrs.get("unit_of_measurement") or "").lower()
+        if eid.startswith("sensor.") and (attrs.get("device_class") == "energy" or unit in ENERGY_UNITS):
+            out.append({"entity_id": eid, "name": attrs.get("friendly_name") or eid,
+                        "state": s.get("state"), "unit": attrs.get("unit_of_measurement")})
+    out.sort(key=lambda e: e["name"].lower())
+    return out
+
+
+async def energy_sensor_for(entity_id: str) -> str | None:
+    """The energy meter (kWh) of the same device as a smart plug switch, if it has one."""
+    return await _device_sensor(entity_id, "energy")
+
+
+async def power_sensor_for(entity_id: str) -> str | None:
+    """The power sensor (W) of the same device as a smart plug switch, if it has one."""
+    return await _device_sensor(entity_id, "power")
+
+
+async def _device_sensor(entity_id: str, device_class: str) -> str | None:
+    import json as _json
+    if not entity_id or not _ENTITY_ID.match(entity_id) or device_class not in ("energy", "power"):
+        return None
+    template = ("{% set d = device_id('" + entity_id + "') %}{% set ns = namespace(o=[]) %}"
+                "{% if d %}{% for e in device_entities(d) %}"
+                "{% if e.startswith('sensor.') and state_attr(e, 'device_class') == '" + device_class + "' %}"
+                "{% set ns.o = ns.o + [[e, state_attr(e, 'state_class') or '']] %}"
+                "{% endif %}{% endfor %}{% endif %}{{ ns.o | tojson }}")
+    try:
+        found = _json.loads(await _request_text("POST", "/template", json={"template": template}))
+    except (HAError, ValueError):
+        return None
+    # energy: a running total (total_increasing) is the meter, others may be e.g. "energy today";
+    # power: the measurement (active power) first
+    best = "total_increasing" if device_class == "energy" else "measurement"
+    found.sort(key=lambda x: (x[1] != best, x[0]))
+    return found[0][0] if found else None
+
+
+async def read_energy(entity_id: str) -> float | None:
+    """Meter reading in kWh, or None (unknown / unavailable)."""
+    try:
+        st = await get_state(entity_id)
+        value = float(st.get("state"))
+    except (HAError, TypeError, ValueError):
+        return None
+    unit = str((st.get("attributes") or {}).get("unit_of_measurement") or "kWh").lower()
+    return value * ENERGY_UNITS.get(unit, 1.0)
+
+
+POWER_UNITS = {"w": 1.0, "kw": 1000.0, "mw": 0.001}
+
+
+async def read_power(entity_id: str) -> float | None:
+    """Current power in W, or None."""
+    try:
+        st = await get_state(entity_id)
+        value = float(st.get("state"))
+    except (HAError, TypeError, ValueError):
+        return None
+    unit = str((st.get("attributes") or {}).get("unit_of_measurement") or "W").lower()
+    return value * POWER_UNITS.get(unit, 1.0)
+
+
 async def get_state(entity_id: str) -> dict:
     return await _request("GET", f"/states/{entity_id}")
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.7
+
+**English**
+- New: **electricity cost per print** and the current power (W) of the smart plug (Home Assistant).
+- Qidi Box: the slot in use no longer shows as "empty" while printing.
+
+**Deutsch**
+- Neu: **Stromkosten pro Druck** und die aktuelle Leistung (W) der Steckdose (Home Assistant).
+- Qidi Box: Das Fach, das gerade druckt, erscheint während des Drucks nicht mehr als «leer».
+
 ## 0.3.6
 
 **English**

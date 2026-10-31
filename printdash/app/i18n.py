@@ -111,6 +111,8 @@ MESSAGES = {
         "Filament (g)": "Filament (g)",
         "Filament (m)": "Filament (m)",
         "Kosten": "Cost",
+        "Strom (kWh)": "Electricity (kWh)",
+        "Stromkosten": "Electricity cost",
         "Materialien": "Materials",
         "🧵 Filament knapp": "🧵 Filament running low",
         "🔧 {printer}: Wartung fällig": "🔧 {printer}: maintenance due",

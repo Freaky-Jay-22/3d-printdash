@@ -58,7 +58,9 @@ class Manager:
         self._ams_state = {}     # printer id -> {online, since, slots{slot: item_id}} for AMS parking
         self._job_slots = {}     # printer id -> slots that were active during the running print
         self._ext_checked = set()  # Klipper printers whose external-spool location was checked
-        self._spool_cache = {}   # printer id -> (time, {material family: spool material})
+        self._spool_cache = {}
+        self._energy_auto = {}
+        self._watt_sensor = {}   # plug entity -> its power sensor (W) or None   # printer id -> (plug entity, its energy meter or None)   # printer id -> (time, {material family: spool material})
         self._ams_start = {}     # printer id -> {slot: {remain, spool_g, type}} at the start of the print
         self.maint = {}          # printer id -> maintenance task status (refreshed every 30 s)
         self._maint_at = 0.0
@@ -225,6 +227,60 @@ class Manager:
     def _pcfg(self, pid) -> dict:
         return next((p for p in self.cfg.get("printers", []) if p.get("id") == pid), {})
 
+    # -- energy meter of the smart plug (electricity cost per print) ----------
+    async def _energy_entity(self, pid) -> str | None:
+        """Configured energy meter, or (automatic) the one of the printer's smart plug."""
+        chosen = (self._pcfg(pid).get("energy_entity") or "").strip()
+        if chosen == "none" or not ha.available():
+            return None
+        if chosen:
+            return chosen
+        plug = self._power_entity(pid)
+        if not plug:
+            return None
+        hit = self._energy_auto.get(pid)
+        if hit and hit[0] == plug:
+            return hit[1]
+        found = await ha.energy_sensor_for(plug)
+        self._energy_auto[pid] = (plug, found)
+        if found:
+            log.info("%s: energy meter %s", pid, found)
+        return found
+
+    async def _energy_start(self, pid, job_id):
+        try:
+            entity = await self._energy_entity(pid)
+            value = await ha.read_energy(entity) if entity else None
+            if value is not None:
+                await asyncio.to_thread(history.set_energy_start, job_id, value)
+        except Exception:  # noqa: BLE001
+            log.exception("Energy meter at print start")
+
+    async def _energy_used(self, pid, job_id):
+        """(kWh, cost) of a finished print, or (None, None) without an energy meter."""
+        try:
+            start = await asyncio.to_thread(history.energy_start, job_id)
+            entity = await self._energy_entity(pid) if start is not None else None
+            end = await ha.read_energy(entity) if entity else None
+        except Exception:  # noqa: BLE001
+            log.exception("Energy meter at print end")
+            return None, None
+        if start is None or end is None or end < start:
+            return None, None   # no meter, or it was reset during the print
+        kwh = round(end - start, 3)
+        price = float((self.cfg.get("costs") or {}).get("electricity_price_per_kwh") or 0)
+        return kwh, (round(kwh * price, 2) if price > 0 else None)
+
+    async def _watts(self, plug) -> float | None:
+        """Current power of the smart plug (W), if it measures it. The sensor is looked up once."""
+        if plug not in self._watt_sensor:
+            self._watt_sensor[plug] = await ha.power_sensor_for(plug)
+        sensor = self._watt_sensor[plug]
+        if not sensor:
+            return None
+        watts = await ha.read_power(sensor)
+        return round(watts, 1) if watts is not None else None
+
     def _power_entity(self, pid) -> str:
         return (self._pcfg(pid).get("power_entity") or "").strip()
 
@@ -241,6 +297,7 @@ class Manager:
                 "on": True if state == "on" else False if state == "off" else None,
                 "available": state not in ("unavailable", "unknown", None),
                 "error": None,
+                "watts": await self._watts(entity),
             }
         except ha.HAError as exc:
             self.power[pid] = {"entity": entity, "on": None, "available": False, "error": str(exc)}
@@ -422,6 +479,7 @@ class Manager:
                 else:
                     started = time.time() - (cur.get("elapsed_s") or 0)
                     self._jobs[pid] = history.start_job(pid, printer.name, cur["filename"], started)
+                    asyncio.create_task(self._energy_start(pid, self._jobs[pid]))
             elif open_job:
                 history.end_job(open_job["id"], END_STATUS.get(state, "unknown"))
                 if self.timelapse.count(open_job["id"]):
@@ -437,6 +495,7 @@ class Manager:
         if state in ACTIVE_STATES:
             if job is None:
                 self._jobs[pid] = history.start_job(pid, printer.name, cur["filename"])
+                asyncio.create_task(self._energy_start(pid, self._jobs[pid]))
                 self._job_slots[pid] = set()
                 self._ams_start.pop(pid, None)
             elif cur["filename"]:
@@ -618,9 +677,11 @@ class Manager:
                 deducted = await self._deduct_usage(printer, st, mats, grams, slots or set())
             except Exception:  # noqa: BLE001
                 log.exception("Filament usage")
+        energy_kwh, energy_cost = await self._energy_used(printer.id, job_id)
         history.end_job(job_id, status, st.get("error"), image,
                         preview=meta.get("thumb"), preview_type=meta.get("thumb_type", "image/png"),
-                        filament_g=grams, filament_m=meters, cost=cost, materials=mats, deducted=deducted)
+                        filament_g=grams, filament_m=meters, cost=cost, materials=mats, deducted=deducted,
+                        energy_kwh=energy_kwh, energy_cost=energy_cost)
         ncfg = self.cfg.get("notify", {})
         if status == "finished" and ncfg.get("on_finish"):
             await notify.send(self.cfg, t("✅ {printer}: fertig", printer=printer.name),

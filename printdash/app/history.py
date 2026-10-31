@@ -33,7 +33,8 @@ def init():
         cols = {r[1] for r in c.execute("PRAGMA table_info(jobs)").fetchall()}
         for col, typ in (("preview", "TEXT"), ("filament_g", "REAL"), ("filament_m", "REAL"),
                          ("cost", "REAL"), ("materials", "TEXT"), ("deducted", "TEXT"),
-                         ("timelapse", "TEXT")):
+                         ("timelapse", "TEXT"), ("energy_start", "REAL"), ("energy_kwh", "REAL"),
+                         ("energy_cost", "REAL")):
             if col not in cols:
                 c.execute(f"ALTER TABLE jobs ADD COLUMN {col} {typ}")
 
@@ -56,6 +57,18 @@ def open_job(printer_id):
         return dict(row) if row else None
 
 
+def set_energy_start(job_id, kwh):
+    """Energy meter reading (kWh) at the start of the print."""
+    with _lock, _conn() as c:
+        c.execute("UPDATE jobs SET energy_start=? WHERE id=?", (kwh, job_id))
+
+
+def energy_start(job_id):
+    with _lock, _conn() as c:
+        row = c.execute("SELECT energy_start FROM jobs WHERE id=?", (job_id,)).fetchone()
+        return row["energy_start"] if row else None
+
+
 def update_filename(job_id, filename):
     with _lock, _conn() as c:
         c.execute("UPDATE jobs SET filename=? WHERE id=? AND (filename IS NULL OR filename<>?)",
@@ -64,7 +77,8 @@ def update_filename(job_id, filename):
 
 def end_job(job_id, status, error=None, snapshot: bytes | None = None,
             preview: bytes | None = None, preview_type: str = "image/png",
-            filament_g=None, filament_m=None, cost=None, materials=None, deducted=None):
+            filament_g=None, filament_m=None, cost=None, materials=None, deducted=None,
+            energy_kwh=None, energy_cost=None):
     snap_name = prev_name = None
     if snapshot:
         snap_name = f"{job_id}.jpg"
@@ -80,10 +94,11 @@ def end_job(job_id, status, error=None, snapshot: bytes | None = None,
         duration = int(now - row["started_at"]) if row else None
         c.execute(
             "UPDATE jobs SET ended_at=?, duration_s=?, status=?, error=?, snapshot=?, "
-            "preview=?, filament_g=?, filament_m=?, cost=?, materials=?, deducted=? WHERE id=?",
+            "preview=?, filament_g=?, filament_m=?, cost=?, materials=?, deducted=?, "
+            "energy_kwh=?, energy_cost=? WHERE id=?",
             (now, duration, status, error, snap_name, prev_name, filament_g, filament_m,
              cost, json.dumps(materials) if materials else None,
-             json.dumps(deducted) if deducted else None, job_id),
+             json.dumps(deducted) if deducted else None, energy_kwh, energy_cost, job_id),
         )
 
 

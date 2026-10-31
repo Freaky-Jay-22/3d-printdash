@@ -42,6 +42,7 @@ DEFAULT_CONFIG = {
     "costs": {
         "currency": "",  # "" = automatic (browser region)
         "default_price_per_kg": 25,
+        "electricity_price_per_kwh": 0,  # 0 = no electricity cost
         "materials": {"PLA": 25, "PETG": 25, "PETG-CF": 40, "ABS": 25,
                       "ABS-CF": 45, "ASA": 30, "ASA-CF": 45, "TPU": 40},
     },

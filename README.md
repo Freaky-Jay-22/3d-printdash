@@ -70,10 +70,10 @@ from Home Assistant ③ Loaded filament per toolhead
 
 | Printer | Connection | Notes |
 |---|---|---|
-| **Bambu Lab printers** | LAN (MQTT, FTPS) | Camera: video stream on the X1 and H2 series, still images on P1 and A1 (new, not yet tested on a real P1/A1). For control see below. |
+| **Bambu Lab printers** | LAN (MQTT, FTPS) | Camera: video stream on the X1, P2 and H2 series, still images on P1 and A1. For control see below. |
 | **Klipper printers with Moonraker** | HTTP API | e.g. Voron, Sovol, Snapmaker U1, Qidi Q2. Multiple toolheads and the Qidi Box are supported. |
 
-So far 3D-PrintDash has been tested with Bambu Lab X1C and P1S, a Snapmaker U1 and (by users) a Qidi Q2.
+So far 3D-PrintDash has been tested with Bambu Lab X1C and P1S, a Snapmaker U1 and (by users) a Bambu Lab P2S and a Qidi Q2.
 Feedback about other models is welcome.
 
 ## Installation
@@ -255,6 +255,10 @@ If a printer is connected to a switchable plug in Home Assistant, you can switch
 - Optionally **"Switch off after the print (min.)"**: the plug is only switched off once the time has passed
   and nozzle and bed are below 50 °C. This only happens after a print.
 - During a print, 3D-PrintDash asks before switching off.
+- **Electricity cost:** if the plug measures energy (kWh), 3D-PrintDash finds its meter automatically
+  ("Energy meter" in the printer settings). Set the price under Settings → Prices → "Electricity price per kWh".
+  The usage and cost of each print then show up in the history. If the plug measures power, the current
+  watts are shown on the printer card.
 
 ## Filament
 
@@ -325,7 +329,7 @@ running even when the browser is closed.
 
   Klipper printers report the filament really extruded. 3D-PrintDash uses it for cancelled prints and when
   the slicer wrote no weight into the file.
-- **Cost:** under Settings → **Filament prices**, set a price per kg for each material. Variants such as
+- **Cost:** under Settings → **Prices**, set a price per kg for each material. Variants such as
   "PLA Basic" count as the base material, anything unknown uses the default price. A material you add
   under Filament → Brands appears there automatically (starting with the price used so far);
   "Add from brands" adds the ones of older brands.
@@ -420,7 +424,7 @@ maintenance due.
 
 - **Language:** English or German under Settings → General. "Automatic" uses the browser language.
   Also applies to notifications.
-- **Currency:** under Settings → Filament prices. "Automatic" picks it from your browser's country
+- **Currency:** under Settings → Prices. "Automatic" picks it from your browser's country
   (e.g. United States → USD, Germany → EUR).
 
 ## Data

@@ -240,7 +240,7 @@ async def ha_entities():
     if not ha.available():
         return {"available": False, "entities": []}
     try:
-        return {"available": True, "entities": await ha.power_entities()}
+        return {"available": True, "entities": await ha.power_entities(), "energy": await ha.energy_sensors()}
     except ha.HAError as exc:
         return {"available": False, "entities": [], "error": str(exc)}
 
@@ -391,7 +391,8 @@ async def history_csv(printer_id: str | None = None, lang: str | None = None):
     w = csv.writer(buf, delimiter=";" if de else ",")
     w.writerow([t("Drucker"), t("Datei"), t("Start"), t("Ende"), t("Dauer (h)"), t("Status"),
                 t("Filament (g)"), t("Filament (m)"), t("Kosten") + (f" ({currency})" if currency else ""),
-                t("Materialien"), t("Fehler")])
+                t("Materialien"), t("Strom (kWh)"), t("Stromkosten") + (f" ({currency})" if currency else ""),
+                t("Fehler")])
     fmt = lambda ts: time.strftime("%Y-%m-%d %H:%M", time.localtime(ts)) if ts else ""  # noqa: E731
     for j in reversed(jobs):
         mats = ", ".join(f"{m.get('type')} {round(m.get('g') or 0)} g" for m in j.get("materials") or [])
@@ -399,7 +400,9 @@ async def history_csv(printer_id: str | None = None, lang: str | None = None):
                     round((j.get("duration_s") or 0) / 3600, 2), j.get("status") or "",
                     j.get("filament_g") if j.get("filament_g") is not None else "",
                     j.get("filament_m") if j.get("filament_m") is not None else "",
-                    j.get("cost") if j.get("cost") is not None else "", mats, j.get("error") or ""])
+                    j.get("cost") if j.get("cost") is not None else "", mats,
+                    j.get("energy_kwh") if j.get("energy_kwh") is not None else "",
+                    j.get("energy_cost") if j.get("energy_cost") is not None else "", j.get("error") or ""])
     name = f"3d-printdash-history-{time.strftime('%Y-%m-%d')}.csv"
     return Response("\ufeff" + buf.getvalue(), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="{name}"'})

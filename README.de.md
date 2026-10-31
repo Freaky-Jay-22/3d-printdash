@@ -71,10 +71,10 @@ aus Home Assistant ③ Geladenes Filament pro Werkzeugkopf
 
 | Drucker | Verbindung | Hinweise |
 |---|---|---|
-| **Bambu-Lab-Drucker** | LAN (MQTT, FTPS) | Kamera: Video-Stream bei der X1- und H2-Serie, Einzelbilder bei P1 und A1 (neu, an einem echten P1/A1 noch ungetestet). Steuerung siehe unten. |
+| **Bambu-Lab-Drucker** | LAN (MQTT, FTPS) | Kamera: Video-Stream bei der X1-, P2- und H2-Serie, Einzelbilder bei P1 und A1. Steuerung siehe unten. |
 | **Klipper-Drucker mit Moonraker** | HTTP-API | z. B. Voron, Sovol, Snapmaker U1, Qidi Q2. Mehrere Werkzeugköpfe und die Qidi Box werden unterstützt. |
 
-Getestet ist 3D-PrintDash bisher mit Bambu Lab X1C und P1S, einem Snapmaker U1 und (von Nutzern) einem Qidi Q2.
+Getestet ist 3D-PrintDash bisher mit Bambu Lab X1C und P1S, einem Snapmaker U1 und (von Nutzern) einem Bambu Lab P2S und einem Qidi Q2.
 Rückmeldungen zu anderen Modellen sind willkommen.
 
 ## Installation
@@ -260,6 +260,10 @@ und ausschalten:
 - Optional **„Nach Druckende ausschalten (Min.)“**: Ausgeschaltet wird erst nach Ablauf der Zeit und wenn
   Düse und Bett unter 50 °C sind. Das passiert nur nach einem Druck.
 - Während eines Drucks fragt 3D-PrintDash vor dem Ausschalten nach.
+- **Stromkosten:** Misst die Steckdose die Energie (kWh), findet 3D-PrintDash ihren Zähler selbst
+  («Energiezähler» in den Druckereinstellungen). Den Preis stellst du unter Einstellungen → Preise →
+  «Strompreis pro kWh» ein. Verbrauch und Kosten jedes Drucks erscheinen dann in der Historie. Misst die
+  Steckdose die Leistung, steht die aktuelle Wattzahl auf der Druckerkarte.
 
 ## Filament
 
@@ -333,7 +337,7 @@ Der Timer läuft auch weiter, wenn der Browser geschlossen ist.
 
   Klipper-Drucker melden das tatsächlich extrudierte Filament. 3D-PrintDash verwendet es bei abgebrochenen
   Drucken und wenn der Slicer kein Gewicht in die Datei geschrieben hat.
-- **Kosten:** unter Einstellungen → **Filamentpreise** einen Preis pro kg je Material. Varianten wie
+- **Kosten:** unter Einstellungen → **Preise** einen Preis pro kg je Material. Varianten wie
   „PLA Basic“ zählen zum Grundmaterial, alles Unbekannte zum Standardpreis. Ein Material, das du unter
   Filament → Marken neu erfasst, erscheint dort automatisch (mit dem bisher verwendeten Preis);
   „Aus Marken übernehmen“ ergänzt die Materialien älterer Marken.
@@ -430,7 +434,7 @@ Wartung fällig.
 
 - **Sprache:** Deutsch oder Englisch unter Einstellungen → Allgemein. „Automatisch“ nimmt die
   Browsersprache. Gilt auch für Benachrichtigungen.
-- **Währung:** unter Einstellungen → Filamentpreise. „Automatisch“ wählt sie nach dem Land deines
+- **Währung:** unter Einstellungen → Preise. „Automatisch“ wählt sie nach dem Land deines
   Browsers (z. B. Schweiz → CHF, Deutschland → EUR).
 
 ## Daten
