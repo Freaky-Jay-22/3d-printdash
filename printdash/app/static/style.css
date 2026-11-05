@@ -208,14 +208,53 @@ body.detail-open { overflow: hidden; }
 .detail-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
 .detail-head h2 { margin: 0; font-size: 19px; }
 .detail-head .spacer { flex: 1; }
-.detail-body { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; padding: 16px; align-items: start; }
+/* cameras on the left, as wide as fits the screen height; the side panel takes the rest and
+   flows into two columns when there is room, so everything fits without scrolling */
+.detail-body { --camw: calc((100vh - 110px) * 16 / 9); display: grid; gap: 16px; padding: 16px; align-items: start;
+  grid-template-columns: min(var(--camw), calc(100% - 396px)) minmax(380px, 1fr); }
+.detail-body:has(.detail-cams[data-count="2"]) { --camw: calc((100vh - 110px) / 2 * 16 / 9); }
 .detail-cams { display: grid; gap: 10px; grid-template-columns: 1fr; }
-/* cameras stacked; with two cameras both fit on screen without scrolling */
-.detail-cams[data-count="2"] .cam { width: min(100%, calc((100vh - 110px) / 2 * 16 / 9)); justify-self: center; }
-.detail-cams .cam { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); }
+.detail-cams .cam { width: 100%; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); }
 .detail-cams .cam-label { font-size: 13px; left: 10px; bottom: 10px; }
-.detail-side { display: flex; flex-direction: column; gap: 12px; }
-.detail-sec { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.detail-side { columns: 2 360px; column-gap: 12px; }
+/* layout switch in the header */
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg-btn { background: var(--panel); color: var(--muted); border: 0; padding: 6px 11px; font-size: 15px; cursor: pointer; line-height: 1; }
+.seg-btn + .seg-btn { border-left: 1px solid var(--line); }
+.seg-btn.active { background: var(--accent); color: var(--accent-ink); }
+/* "pip" and "side": cameras take all the room on the left, the info is one compact column on the right
+   that scrolls by itself if it does not fit */
+.detail-body.layout-pip { grid-template-columns: minmax(0, 1fr) 400px; }
+.layout-pip .detail-side { columns: 1; position: sticky; top: 66px;
+  max-height: calc(100vh - 92px); overflow-y: auto; scrollbar-width: thin; }
+/* "side": cameras side by side across the full width, the info below in several columns */
+.detail-body.layout-side { grid-template-columns: 1fr; }
+.layout-side .detail-side { columns: 4 300px; }
+.layout-side .detail-cams[data-count] { grid-template-columns: repeat(2, min(calc(50% - 5px), calc((100vh - 400px) * 16 / 9))); }
+.layout-side .detail-cams[data-count="0"], .layout-side .detail-cams[data-count="1"] { grid-template-columns: min(100%, calc((100vh - 400px) * 16 / 9)); }
+.layout-pip .detail-cams { position: relative; display: block; }
+.layout-pip .detail-cams > .cam { width: min(100%, calc((100vh - 100px) * 16 / 9)); }
+.pip-stack { position: absolute; right: 14px; bottom: 14px; width: min(28%, 420px); display: flex; flex-direction: column; gap: 8px; }
+.pip-stack .cam { box-shadow: 0 6px 24px rgba(0,0,0,.5); border-color: rgba(255,255,255,.35); cursor: pointer; }
+/* compact info (all new layouts, not "classic") */
+.detail-body:not(.layout-classic) .detail-sec .time-row .big { font-size: 24px; }
+.detail-body:not(.layout-classic) .chip { font-size: 13px; padding: 4px 9px; }
+.detail-body:not(.layout-classic) .mini-job { grid-template-columns: 52px minmax(0, 1fr) auto; gap: 8px; }
+.detail-body:not(.layout-classic) .mini-job img, .detail-body:not(.layout-classic) .mini-job .noimg { width: 52px; }
+.detail-body:not(.layout-classic) .detail-info { gap: 4px 12px; }
+.detail-side > .detail-sec { break-inside: avoid; margin-bottom: 12px; }
+/* "classic": the layout of version 0.3.7 (cameras centred, info column on the right) */
+.detail-body.layout-classic { grid-template-columns: minmax(0, 1fr) 380px; }
+.layout-classic .detail-cams[data-count="2"] .cam { width: min(100%, calc((100vh - 110px) / 2 * 16 / 9)); justify-self: center; }
+.layout-classic .detail-side { columns: auto; display: flex; flex-direction: column; gap: 12px; }
+.layout-classic .detail-side > .detail-sec { margin-bottom: 0; padding: 14px 16px; gap: 10px; }
+/* the default layout is marked with a dot; "Standard" saves the current one as default */
+.seg-btn.is-default { position: relative; }
+.seg-btn.is-default::after { content: ""; position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: #f5b301; }
+.seg-btn.std { font-size: 12.5px; padding: 6px 10px; }
+.seg-btn.std[disabled] { opacity: .55; cursor: default; }
+.detail-side > .detail-sec[hidden] { display: none; }
+.detail-sec { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
 .detail-sec h4 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
 .detail-sec .file { font-size: 15px; color: var(--text); white-space: normal; word-break: break-word; }
 .detail-sec .progress { height: 10px; }
@@ -235,8 +274,10 @@ body.detail-open { overflow: hidden; }
 .mini-job .sub { color: var(--muted); font-size: 12px; }
 .detail-overlay:fullscreen { background: var(--bg); }
 @media (max-width: 1000px) {
-  .detail-body { grid-template-columns: 1fr; }
-  .detail-cams[data-count="2"] .cam { width: 100%; }
+  .detail-body, .detail-body:has(.detail-cams), .detail-body.layout-pip, .detail-body.layout-side, .detail-body.layout-classic { grid-template-columns: 1fr; }
+  .layout-classic .detail-cams[data-count="2"] .cam { width: 100%; }
+  .detail-side, .layout-pip .detail-side, .layout-side .detail-side { columns: 1; position: static; max-height: none; overflow: visible; }
+  .layout-pip .detail-cams > .cam { width: 100%; }
 }
 @media (max-width: 640px) {
   .detail-head { flex-wrap: wrap; gap: 8px; }

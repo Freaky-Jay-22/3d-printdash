@@ -1771,6 +1771,41 @@ poll().then(() => showView(["overview", "cameras", "history", "filament", "setti
 /* ---------- printer detail (full screen) ---------- */
 let detail = null;
 
+// layout of the printer details (per browser): "classic" = like version 0.3.7, "stack" = cameras on top
+// of each other, "pip" = one big camera + the others small in the corner, "side" = cameras side by side.
+// The default layout is used whenever the details are opened; the buttons switch only for now.
+const DETAIL_LAYOUTS = [["classic", "▤", "Klassisch (wie bisher)"], ["stack", "☰", "Kameras übereinander"],
+  ["pip", "▣", "Grosse Kamera + Bild im Bild"], ["side", "◫", "Kameras nebeneinander"]];
+const knownLayout = (v) => DETAIL_LAYOUTS.some(([k]) => k === v);
+let detailDefault = (() => {
+  try { const v = localStorage.getItem("pf-detail-layout"); return knownLayout(v) ? v : "classic"; }
+  catch { return "classic"; }
+})();
+let detailLayout = detailDefault;
+const fill = (node, ...kids) => { node.append(...kids); return node; };
+function markLayoutButtons() {
+  if (!detail) return;
+  detail.layoutBtns.forEach((b) => {
+    b.classList.toggle("active", b.dataset.layout === detailLayout);
+    b.classList.toggle("is-default", b.dataset.layout === detailDefault);
+  });
+  detail.stdBtn.disabled = detailLayout === detailDefault;
+}
+function setDetailLayout(value) {
+  detailLayout = value;
+  if (!detail) return;
+  detail.body.className = `detail-body layout-${value}`;
+  markLayoutButtons();
+  detail.camKey = null;
+  renderDetail();
+}
+function saveDefaultLayout() {
+  detailDefault = detailLayout;
+  try { localStorage.setItem("pf-detail-layout", detailDefault); } catch { /* private mode */ }
+  markLayoutButtons();
+  toast(t("Als Standard gespeichert"), "ok");
+}
+
 function openDetail(pid) {
   const p = lastState?.printers.find((x) => x.id === pid);
   if (!p) return;
@@ -1800,12 +1835,20 @@ function openDetail(pid) {
     else root.requestFullscreen?.().catch(() => {});
   } }, t("⛶ Vollbild"));
   const section = (title, ...kids) => el("section", { class: "detail-sec" }, title ? el("h4", {}, title) : null, ...kids);
+  detailLayout = detailDefault;   // always open with the default layout
+  d.layoutBtns = DETAIL_LAYOUTS.map(([key, icon, label]) => el("button", {
+    class: `seg-btn${key === detailLayout ? " active" : ""}${key === detailDefault ? " is-default" : ""}`,
+    "data-layout": key, title: t(label), "aria-label": t(label), onclick: () => setDetailLayout(key) }, icon));
+  d.stdBtn = el("button", { class: "seg-btn std", disabled: true, title: t("Aktuelle Ansicht immer verwenden (Punkt = Standard)"),
+    onclick: saveDefaultLayout }, t("Standard"));
+  d.body = el("div", { class: `detail-body layout-${detailLayout}` });
   d.node.append(
     el("header", { class: "detail-head" },
       el("button", { class: "btn", onclick: closeDetail }, t("← Übersicht")),
-      d.title, d.badge, el("span", { class: "spacer" }), fsBtn,
+      d.title, d.badge, el("span", { class: "spacer" }),
+      el("div", { class: "seg", role: "group", "aria-label": t("Ansicht") }, d.layoutBtns, d.stdBtn), fsBtn,
       el("button", { class: "icon-btn", "aria-label": t("Schliessen"), onclick: closeDetail }, "✕")),
-    el("div", { class: "detail-body" },
+    fill(d.body,
       d.cams,
       el("aside", { class: "detail-side" },
         section(null, el("div", { class: "file-row" }, d.thumb, d.file), d.progress, d.time, d.info, d.alerts),
@@ -1894,22 +1937,33 @@ function renderDetail() {
   rows.push([t("Verbindung"), p.online ? "online" : "offline"]);
   d.info.replaceChildren(...rows.map(([k, v]) => el("div", {}, el("span", {}, k), el("b", {}, v))));
 
-  // cameras: all of them large
-  const key = p.cameras.join("|") + "|" + camPausedText(p, p.cameras[0]);
+  // cameras: layout chosen in the header (stacked / one big + picture in picture / side by side)
+  const cams = p.cameras.includes(d.mainCam) ? [d.mainCam, ...p.cameras.filter((c) => c !== d.mainCam)] : p.cameras;
+  const pip = detailLayout === "pip" && cams.length > 1;
+  const key = [detailLayout, ...cams].join("|") + "|" + camPausedText(p, cams[0]);
   if (key !== d.camKey) {
     d.camKey = key;
     detachCameras(d.cams);
     d.cams.innerHTML = "";
-    d.cams.dataset.count = String(Math.min(p.cameras.length, 4));
-    if (!p.cameras.length) d.cams.append(el("div", { class: "cam" }, el("div", { class: "cam-msg" }, t("Keine Kamera"))));
-    for (const id of p.cameras) {
+    d.cams.dataset.count = String(Math.min(cams.length, 4));
+    if (!cams.length) d.cams.append(el("div", { class: "cam" }, el("div", { class: "cam-msg" }, t("Keine Kamera"))));
+    const small = pip ? el("div", { class: "pip-stack" }) : null;
+    cams.forEach((id, i) => {
       const info = lastState.cameras.find((x) => x.id === id);
       const tile = el("div", { class: "cam" });
-      tile.addEventListener("click", () => openCamOverlay(id, info?.name || p.name));
-      d.cams.append(tile);
+      if (small && i > 0) {
+        // small picture: click makes it the big one
+        tile.title = t("Gross anzeigen");
+        tile.addEventListener("click", (ev) => { ev.stopPropagation(); d.mainCam = id; d.camKey = null; renderDetail(); });
+        small.append(tile);
+      } else {
+        tile.addEventListener("click", () => openCamOverlay(id, info?.name || p.name));
+        d.cams.append(tile);
+      }
       showCamera(tile, p, id);
       tile.append(el("span", { class: "cam-label" }, info?.name || p.name));
-    }
+    });
+    if (small) d.cams.append(small);
   }
 }
 

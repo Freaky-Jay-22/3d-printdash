@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.8
+
+**English**
+- Printer details: four layouts to choose from (classic as before, stacked, large camera with picture in picture, side by side), one can be saved as default.
+
+**Deutsch**
+- Druckerdetails: vier Ansichten zur Wahl (klassisch wie bisher, übereinander, grosse Kamera mit Bild im Bild, nebeneinander), eine lässt sich als Standard speichern.
+
 ## 0.3.7
 
 **English**
