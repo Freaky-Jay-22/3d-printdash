@@ -436,8 +436,7 @@ Everything is stored in the app's data folder (`/data`): `config.json` (settings
 ## Contributing
 
 Bugs and ideas are welcome as an [issue](https://github.com/Freaky-Jay-22/3d-printdash/issues). More
-languages can be added in `printdash/app/static/lang/` and `printdash/app/i18n.py`. How to develop without
-real printers is described in [`dev/README.md`](dev/README.md).
+languages can be added in `printdash/app/static/lang/` and `printdash/app/i18n.py`.
 
 ## License
 
