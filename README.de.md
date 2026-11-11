@@ -4,6 +4,8 @@
 
 [English](README.md) · **Deutsch**
 
+[![Discord](https://img.shields.io/badge/Discord-Zur%20Community-5865F2?logo=discord&logoColor=white)](https://discord.gg/nP3KDZavXr)
+
 Ein lokales Dashboard für deine 3D-Drucker. 3D-PrintDash läuft als App (früher „Add-on“) in Home Assistant
 oder als Docker-Container und spricht die Drucker direkt in deinem Netzwerk an, ohne Cloud und ohne
 Home-Assistant-Integrationen.
@@ -448,6 +450,8 @@ Sicherungen vor einer Wiederherstellung).
 
 Fehler und Ideen gerne als [Issue](https://github.com/Freaky-Jay-22/3d-printdash/issues). Weitere Sprachen
 lassen sich über `printdash/app/static/lang/` und `printdash/app/i18n.py` ergänzen.
+
+Fragen, Hilfe oder Lust, neue Drucker zu testen? Komm auf den [Discord-Server](https://discord.gg/nP3KDZavXr).
 
 ## Lizenz
 
