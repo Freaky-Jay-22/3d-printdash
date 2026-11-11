@@ -381,6 +381,8 @@ Everything is stored in the app's data folder (`/data`): `config.json` (settings
 Bugs and ideas are welcome as an [issue](https://github.com/Freaky-Jay-22/3d-printdash/issues). More
 languages can be added in `printdash/app/static/lang/` and `printdash/app/i18n.py`.
 
+Questions, help or want to test new printers? Join the [Discord server](https://discord.gg/nP3KDZavXr).
+
 ### License
 
 [MIT](https://github.com/Freaky-Jay-22/3d-printdash/blob/main/LICENSE)
@@ -750,6 +752,8 @@ Sicherungen vor einer Wiederherstellung).
 
 Fehler und Ideen gerne als [Issue](https://github.com/Freaky-Jay-22/3d-printdash/issues). Weitere Sprachen
 lassen sich über `printdash/app/static/lang/` und `printdash/app/i18n.py` ergänzen.
+
+Fragen, Hilfe oder Lust, neue Drucker zu testen? Komm auf den [Discord-Server](https://discord.gg/nP3KDZavXr).
 
 ### Lizenz
 
