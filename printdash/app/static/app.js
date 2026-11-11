@@ -661,7 +661,7 @@ function updateCard(c, p) {
     if (p.light !== null) {
       c.actions.append(actionBtn(p, p.light ? "light_off" : "light_on", t("Licht"), ICONS.light, p.light ? "on" : "", !canControl));
     }
-    c.actions.append(el("button", {
+    if (p.type !== "creality") c.actions.append(el("button", {
       class: "btn", disabled: !canControl,
       onclick: () => openPrintDialog(p.id),
     }, icon(ICONS.upload), t("Datei drucken")));
@@ -1056,7 +1056,8 @@ function renderSettings() {
   for (const p of draft.printers) pSec.append(printerItem(p));
   pSec.append(el("div", { class: "row-btns" },
     el("button", { class: "btn", onclick: () => { draft.printers.push({ id: "", type: "bambu", name: "Bambu Lab", host: "", serial: "", access_code: "", camera: true }); renderSettings(); } }, "+ Bambu Lab"),
-    el("button", { class: "btn", onclick: () => { draft.printers.push({ id: "", type: "moonraker", name: "Klipper", url: "", api_key: "", light_object: "", light_on_gcode: "", light_off_gcode: "", camera_url: "" }); renderSettings(); } }, "+ Klipper / Moonraker")));
+    el("button", { class: "btn", onclick: () => { draft.printers.push({ id: "", type: "moonraker", name: "Klipper", url: "", api_key: "", light_object: "", light_on_gcode: "", light_off_gcode: "", camera_url: "" }); renderSettings(); } }, "+ Klipper / Moonraker"),
+    el("button", { class: "btn", onclick: () => { draft.printers.push({ id: "", type: "creality", name: "Creality", host: "", camera: true, camera_url: "" }); renderSettings(); } }, t("+ Creality (experimentell)"))));
   root.append(pSec);
 
   /* cameras */
@@ -1623,6 +1624,8 @@ function amsSensorFields(p) {
   return wrap;
 }
 
+const PRINTER_TYPE_NAMES = { bambu: "Bambu Lab (LAN)", moonraker: "Klipper / Moonraker", creality: "Creality (experimentell)" };
+
 function printerItem(p) {
   const remove = el("button", { class: "btn danger", onclick: () => {
     if (!confirm(t("„{0}“ entfernen?", p.name))) return;
@@ -1630,7 +1633,7 @@ function printerItem(p) {
     renderSettings();
   } }, t("Entfernen"));
   const head = el("div", { class: "item-head" },
-    el("span", {}, p.name || t("Drucker"), el("span", { class: "tag" }, p.type === "bambu" ? "Bambu Lab (LAN)" : "Klipper / Moonraker")), remove);
+    el("span", {}, p.name || t("Drucker"), el("span", { class: "tag" }, t(PRINTER_TYPE_NAMES[p.type] || PRINTER_TYPE_NAMES.moonraker))), remove);
   const fields = el("div", { class: "fields" });
   const item = el("div", { class: "item" }, head, fields);
   // maintenance intervals (print hours / days, 0 = off)
@@ -1693,6 +1696,14 @@ function printerItem(p) {
     item.append(amsSensorFields(p));
     item.append(bambuControlFields(p));
     item.append(el("p", { class: "note" }, t("Für die Kamera muss am Drucker „LAN Only Liveview“ (Einstellungen → Netzwerk) eingeschaltet sein.")));
+  } else if (p.type === "creality") {
+    fields.append(
+      field(t("Name"), p, "name"),
+      field(t("IP-Adresse"), p, "host", { placeholder: "192.168.1.42" }),
+      field(t("Eingebaute Kamera verwenden"), p, "camera", { type: "checkbox", hint: "" }),
+      field(t("Kamera-URL (optional)"), p, "camera_url", { placeholder: t("leer = automatisch"), wide: true }),
+      ...powerFields(), ...timelapseFields(), ...maintFields());
+    item.append(el("p", { class: "note" }, t("Experimentell: für Creality-Drucker mit der normalen Firmware (K1-Serie, ohne Root). Mit Root und Moonraker besser „Klipper / Moonraker“ wählen. Dateien senden geht noch nicht.")));
   } else {
     const result = el("span", { class: "probe-result" });
     const camInfo = el("div", { class: "probe-result", hidden: true, style: "margin-top:6px;word-break:break-all" });

@@ -301,6 +301,8 @@ class CameraHub:
                         await self._run_snapshot()
                     elif self.mode == "bambu_jpeg":
                         await self._run_bambu_jpeg()
+                    elif self.mode == "creality_webrtc":
+                        await self._run_webrtc()
                     else:
                         await self._run_ffmpeg()
                 except asyncio.CancelledError:
@@ -379,6 +381,12 @@ class CameraHub:
                 await writer.wait_closed()
             except Exception:  # noqa: BLE001
                 pass
+
+    async def _run_webrtc(self):
+        from . import webrtc_cam  # loads the WebRTC library only when needed
+        orient = (lambda data: orient_jpeg(data, self.orient)) if self.orient else None
+        await webrtc_cam.run(self.url, self.fps, self.width, self._publish, orient, self._should_run,
+                             name=self.name)
 
     async def _oriented(self, frame: bytes) -> bytes:
         if not self.orient:

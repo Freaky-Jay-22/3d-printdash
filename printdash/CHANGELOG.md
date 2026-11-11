@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.9
+
+**English**
+- New (experimental): **Creality K1 series** with the stock firmware, no root needed. Feedback and logs are welcome.
+
+**Deutsch**
+- Neu (experimentell): **Creality K1-Serie** mit der normalen Firmware, ohne Root. Rückmeldungen und Logs sind willkommen.
+
 ## 0.3.8
 
 **English**

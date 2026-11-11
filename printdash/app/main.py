@@ -620,7 +620,7 @@ async def get_config():
 @app.put("/api/config")
 async def put_config(body: dict, request: Request):
     for p in body.get("printers", []):
-        if p.get("type") not in ("bambu", "moonraker"):
+        if p.get("type") not in ("bambu", "moonraker", "creality"):
             raise HTTPException(400, t("Unbekannter Druckertyp"))
     new_cfg = config_store.unmask(body, manager.cfg)
     new_cfg.setdefault("ui", {})

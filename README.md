@@ -72,6 +72,7 @@ from Home Assistant ③ Loaded filament per toolhead
 |---|---|---|
 | **Bambu Lab printers** | LAN (MQTT, FTPS) | Camera: video stream on the X1, P2 and H2 series, still images on P1 and A1. For control see below. |
 | **Klipper printers with Moonraker** | HTTP API | e.g. Voron, Sovol, Snapmaker U1, Qidi Q2. Multiple toolheads and the Qidi Box are supported. |
+| **Creality K1 series** *(experimental)* | Websocket | Stock firmware, no root needed. Status, temperatures, camera (also WebRTC), pause/stop, light and history. No file upload yet. Rooted with Moonraker: use "Klipper". |
 
 So far 3D-PrintDash has been tested with Bambu Lab X1C and P1S, a Snapmaker U1 and (by users) a Bambu Lab P2S and a Qidi Q2.
 Feedback about other models is welcome.

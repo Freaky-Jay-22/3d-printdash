@@ -5,3 +5,4 @@ httpx>=0.27,<1
 python-multipart>=0.0.9
 websockets>=14
 pillow>=10,<13
+aiortc>=1.9,<2
