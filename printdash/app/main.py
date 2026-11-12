@@ -70,7 +70,8 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 # -- password for direct (non-ingress) access -------------------------------
-PUBLIC_PATHS = ("/login", "/api/login", "/static/style.css", "/static/i18n.js", "/static/lang/en.js")
+PUBLIC_PATHS = ("/login", "/api/login", "/static/style.css", "/static/i18n.js", "/static/lang/en.js",
+                "/static/icon.png")
 
 
 def _password_hash() -> str:
@@ -240,7 +241,9 @@ async def ha_entities():
     if not ha.available():
         return {"available": False, "entities": []}
     try:
-        return {"available": True, "entities": await ha.power_entities(), "energy": await ha.energy_sensors()}
+        states = await ha._request("GET", "/states")
+        return {"available": True, "entities": await ha.power_entities(states), "energy": await ha.energy_sensors(states),
+                "cameras": await ha.camera_entities(states)}
     except ha.HAError as exc:
         return {"available": False, "entities": [], "error": str(exc)}
 

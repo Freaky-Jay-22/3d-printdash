@@ -40,8 +40,10 @@ button, input, select { font: inherit; color: inherit; }
   padding: 10px 20px; background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(8px); border-bottom: 1px solid var(--line);
 }
-.brand { display: flex; align-items: center; gap: 8px; font-weight: 650; letter-spacing: .02em; }
-.brand svg { width: 22px; height: 22px; fill: var(--accent); }
+.brand { display: flex; align-items: center; gap: 11px; font-size: 21px; font-weight: 700; letter-spacing: .02em; }
+.brand-acc { color: var(--accent); }
+.brand-mid { color: #7184a0; }
+.brand-icon { width: 42px; height: 42px; border-radius: 10px; display: block; box-shadow: 0 0 0 1px var(--line); }
 .tabs { display: flex; gap: 4px; overflow-x: auto; }
 .tabs button {
   border: 0; background: none; padding: 7px 14px; border-radius: 8px; color: var(--muted);
@@ -190,6 +192,8 @@ dialog::backdrop { background: rgba(0,0,0,.6); }
 
 @media (max-width: 640px) {
   .topbar { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 12px; }
+  .brand { font-size: 19px; }
+  .brand-icon { width: 36px; height: 36px; border-radius: 8px; }
   main { padding: 12px; }
   .tabs button { padding: 7px 10px; }
   .job { grid-template-columns: 72px 1fr; }

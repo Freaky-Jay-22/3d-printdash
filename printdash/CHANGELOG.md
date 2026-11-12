@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.10
+
+**English**
+- Creality: camera can optionally come from Home Assistant (for cameras that allow only one connection)
+- Creality: firmware and hardware version shown clearly
+- 3D-PrintDash logo in the top bar (follows the design colour), on the login page and as browser icon
+
+**Deutsch**
+- Creality: Kamera wahlweise über Home Assistant (für Kameras, die nur eine Verbindung erlauben)
+- Creality: Firmware- und Hardware-Version übersichtlich angezeigt
+- 3D-PrintDash-Logo oben links (passt sich der Designfarbe an), auf der Anmeldeseite und als Browser-Symbol
+
 ## 0.3.9
 
 **English**

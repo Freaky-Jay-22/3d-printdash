@@ -23,6 +23,9 @@ PORT = 9999
 SILENT_ASK_S = 10       # no data for this long: ask for all values
 SILENT_RECONNECT_S = 30  # still nothing: connect again
 ACTIVE_CODES = (0, 7, 9)  # busy around a print (starting, finishing a cancel ...)
+# changes of these fields are always logged (status, errors, filament sensor, filament system)
+WATCHED = ("state", "deviceState", "err", "withSelfTest", "printFileName", "materialDetect",
+           "materialDetector1", "materialStatus", "feedState", "cfsConnect")
 
 
 def _num(value, digits=1):
@@ -40,6 +43,26 @@ def _int(value):
 def _short(value) -> str:
     text = json.dumps(value, ensure_ascii=False) if not isinstance(value, str) else value
     return text if len(text) <= 200 else text[:200] + " …"
+
+
+def _version_parts(text) -> dict:
+    """'printer hw ver:;printer sw ver:;DWIN hw ver:CR4CU…;DWIN sw ver:1.3.5.22;' →
+    firmware / hardware. Printer values win over the display (DWIN) values when filled."""
+    if not isinstance(text, str) or "ver:" not in text:
+        return {}
+    parts = {}
+    for item in text.split(";"):
+        name, _, value = item.partition(":")
+        if value.strip():
+            parts[name.strip().lower()] = value.strip()
+    out = {}
+    fw = parts.get("printer sw ver") or parts.get("dwin sw ver")
+    hw = parts.get("printer hw ver") or parts.get("dwin hw ver")
+    if fw:
+        out["firmware"] = fw
+    if hw:
+        out["hardware"] = hw
+    return out
 
 
 class CrealityPrinter(BasePrinter):
@@ -152,8 +175,7 @@ class CrealityPrinter(BasePrinter):
             if key not in self._seen:
                 self._seen.add(key)
                 log.info("%s: field %s = %s", self.name, key, _short(value))
-            elif key in ("state", "deviceState", "err", "withSelfTest", "printFileName") \
-                    and value != self.data.get(key):
+            elif key in WATCHED and value != self.data.get(key):
                 log.info("%s: %s %s → %s", self.name, key,
                          _short(self.data.get(key)), _short(value))
 
@@ -230,10 +252,16 @@ class CrealityPrinter(BasePrinter):
         if "lightSw" in d:
             st["light"] = bool(_int(d.get("lightSw")))
         versions = []
-        for key, label in (("model", t("Modell")), ("modelVersion", t("Modellversion")),
-                           ("hostname", "Hostname")):
-            if d.get(key):
-                versions.append({"label": label, "value": str(d[key])})
+        if d.get("model"):
+            versions.append({"label": t("Modell"), "value": str(d["model"])})
+        info = _version_parts(d.get("modelVersion"))
+        for key, label in (("firmware", "Firmware"), ("hardware", "Hardware")):
+            if info.get(key):
+                versions.append({"label": label, "value": info[key]})
+        if d.get("modelVersion") and not info:
+            versions.append({"label": t("Modellversion"), "value": str(d["modelVersion"])})
+        if d.get("hostname"):
+            versions.append({"label": "Hostname", "value": str(d["hostname"])})
         st["versions"] = versions
         return st
 
@@ -273,6 +301,10 @@ class CrealityPrinter(BasePrinter):
     def camera_sources(self) -> list:
         if self.cfg.get("camera") is False:
             return []
+        entity = (self.cfg.get("camera_entity") or "").strip()
+        if entity:  # camera from Home Assistant, e.g. when an integration already holds it
+            return [{"id": f"{self.id}-cam", "name": self.name, "url": entity,
+                     "mode": "ha_camera", "printer_id": self.id}]
         override = (self.cfg.get("camera_url") or "").strip()
         if override:
             mode = "snapshot" if override.lower().split("?")[0].endswith((".jpg", ".jpeg")) \

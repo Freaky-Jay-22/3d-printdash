@@ -303,6 +303,8 @@ class CameraHub:
                         await self._run_bambu_jpeg()
                     elif self.mode == "creality_webrtc":
                         await self._run_webrtc()
+                    elif self.mode == "ha_camera":
+                        await self._run_ha_camera()
                     else:
                         await self._run_ffmpeg()
                 except asyncio.CancelledError:
@@ -381,6 +383,59 @@ class CameraHub:
                 await writer.wait_closed()
             except Exception:  # noqa: BLE001
                 pass
+
+    async def _run_ha_camera(self):
+        """Camera entity from Home Assistant (e.g. from a printer integration that already
+        holds the camera). Uses the MJPEG stream of HA; if HA has no stream for the entity,
+        it falls back to still images."""
+        from . import ha
+        urls = ha.camera_urls(self.url)
+        if not urls:
+            raise RuntimeError(t("Home Assistant nicht verbunden"))
+        stream_url, still_url, headers = urls
+        interval = 1 / max(1, self.fps)
+        got_frame = False
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(10, read=15)) as client:
+                async with client.stream("GET", stream_url, headers=headers) as r:
+                    if r.status_code >= 400:
+                        raise RuntimeError(t("Home Assistant: Fehler {code}", code=r.status_code))
+                    buf = b""
+                    next_at = 0.0
+                    async for chunk in r.aiter_bytes():
+                        if not self._should_run():
+                            return
+                        buf += chunk
+                        while True:
+                            start = buf.find(SOI)
+                            end = buf.find(b"\xff\xd9", start + 2) if start >= 0 else -1
+                            if start < 0 or end < 0:
+                                buf = buf[start:] if start >= 0 else buf[-1:]
+                                if len(buf) > 8 * 1024 * 1024:
+                                    buf = b""
+                                break
+                            frame, buf = buf[start:end + 2], buf[end + 2:]
+                            got_frame = True
+                            now = time.monotonic()
+                            if now >= next_at:
+                                next_at = now + interval
+                                await self._publish(await self._oriented(frame))
+        except (httpx.HTTPError, RuntimeError) as exc:
+            if got_frame:
+                raise RuntimeError(t("Stream beendet")) from exc
+            log.info("Camera %s: no stream from Home Assistant (%s), using still images",
+                     self.name, redact(exc))
+        if got_frame:
+            raise RuntimeError(t("Stream beendet"))
+        async with httpx.AsyncClient(timeout=10) as client:
+            while self._should_run():
+                r = await client.get(still_url, headers=headers)
+                if r.status_code >= 400:
+                    raise RuntimeError(t("Home Assistant: Fehler {code}", code=r.status_code))
+                if not r.content.startswith(SOI):
+                    raise RuntimeError(t("Antwort ist kein JPEG-Bild"))
+                await self._publish(await self._oriented(r.content))
+                await asyncio.sleep(max(interval, 0.5))
 
     async def _run_webrtc(self):
         from . import webrtc_cam  # loads the WebRTC library only when needed

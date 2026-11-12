@@ -5,14 +5,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <title>3D-PrintDash</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%2338bdf8' d='M19 8H5a3 3 0 0 0-3 3v6h4v4h12v-4h4v-6a3 3 0 0 0-3-3m-3 11H8v-5h8zm3-7a1 1 0 1 1 0-2 1 1 0 0 1 0 2m-1-9H6v4h12z'/></svg>">
+  <link rel="icon" href="static/icon.png" type="image/png">
   <link rel="stylesheet" href="static/style.css">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 8H5a3 3 0 0 0-3 3v6h4v4h12v-4h4v-6a3 3 0 0 0-3-3m-3 11H8v-5h8zm3-7a1 1 0 1 1 0-2 1 1 0 0 1 0 2m-1-9H6v4h12z"/></svg>
-      <span>3D-PrintDash</span>
+      <svg viewBox="0 0 128 128" class="brand-icon" aria-hidden="true">
+        <defs>
+          <linearGradient id="pdBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#16223a"/><stop offset="1" stop-color="#0a1120"/></linearGradient>
+          <linearGradient id="pdCone" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f1f5f9"/><stop offset=".7" stop-color="#e2e8f0" stop-opacity=".9"/><stop offset="1" stop-color="#e2e8f0" stop-opacity=".25"/></linearGradient>
+          <radialGradient id="pdGlow"><stop offset="0" stop-color="#ff953a" stop-opacity=".85"/><stop offset="1" stop-color="#ff953a" stop-opacity="0"/></radialGradient>
+        </defs>
+        <rect width="128" height="128" rx="28" fill="url(#pdBg)"/>
+        <path d="M54 41h20l-7.5 16.5h-5z" fill="url(#pdCone)"/>
+        <rect x="49" y="24" width="30" height="18" rx="4.5" fill="#f1f5f9"/>
+        <g fill="#0f1a2e"><rect x="55.3" y="29" width="2.6" height="9" rx="1.3"/><rect x="62.7" y="29" width="2.6" height="9" rx="1.3"/><rect x="70.1" y="29" width="2.6" height="9" rx="1.3"/></g>
+        <circle cx="64" cy="61.5" r="6.5" fill="url(#pdGlow)"/>
+        <circle cx="64" cy="61.5" r="2.3" fill="#ff953a"/>
+        <g style="fill: var(--accent, #38bdf8)">
+          <rect x="46" y="64.5" width="36" height="8" rx="4"/>
+          <rect x="41" y="76" width="46" height="8" rx="4"/>
+          <rect x="37.5" y="87.5" width="53" height="8" rx="4"/>
+        </g>
+        <rect x="46" y="64.5" width="36" height="8" rx="4" fill="#fff" opacity=".22"/>
+      </svg>
+      <span class="brand-name"><span class="brand-acc">3D-</span><span class="brand-mid">Print</span><span class="brand-acc">Dash</span></span>
     </div>
     <nav class="tabs" role="tablist">
       <button data-view="overview" class="active" data-i18n>Übersicht</button>

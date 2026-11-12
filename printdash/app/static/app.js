@@ -1015,13 +1015,13 @@ async function loadStats() {
 /* ---------- settings ---------- */
 let draft = null;
 let haServices = null;
-let haEntities = { available: false, entities: [], energy: [] };
+let haEntities = { available: false, entities: [], energy: [], cameras: [] };
 
 async function loadSettings() {
   try {
     draft = await api("api/config");
     if (haServices === null) haServices = await api("api/notify/services").catch(() => ({ available: false, services: [] }));
-    haEntities = await api("api/ha/entities").catch(() => ({ available: false, entities: [], energy: [] }));
+    haEntities = await api("api/ha/entities").catch(() => ({ available: false, entities: [], energy: [], cameras: [] }));
   } catch (e) { toast(e.message, "bad"); return; }
   renderSettings();
 }
@@ -1658,6 +1658,14 @@ function printerItem(p) {
       field(t("Kamera für den Zeitraffer"), p, "timelapse_camera", { options: opts }),
     ];
   };
+  const haCameraField = () => {
+    const cams = haEntities.cameras || [];
+    if (!haEntities.available) return null;
+    const opts = [["", t("– keine (direkt vom Drucker) –")], ...cams.map((e) => [e.entity_id, `${e.name} (${e.entity_id})`])];
+    if (p.camera_entity && !cams.some((e) => e.entity_id === p.camera_entity)) opts.push([p.camera_entity, p.camera_entity]);
+    return field(t("Kamera aus Home Assistant"), p, "camera_entity", { options: opts,
+      hint: t("Für Drucker, deren Kamera nur eine Verbindung erlaubt: Nutzt eine Integration die Kamera schon, wird das Bild über Home Assistant geholt.") });
+  };
   const powerFields = () => {
     const opts = [["", t("– keine –")], ...haEntities.entities.map((e) => [e.entity_id, `${e.name} (${e.entity_id})`])];
     if (p.power_entity && !haEntities.entities.some((e) => e.entity_id === p.power_entity)) opts.push([p.power_entity, p.power_entity]);
@@ -1701,6 +1709,7 @@ function printerItem(p) {
       field(t("Name"), p, "name"),
       field(t("IP-Adresse"), p, "host", { placeholder: "192.168.1.42" }),
       field(t("Eingebaute Kamera verwenden"), p, "camera", { type: "checkbox", hint: "" }),
+      ...[haCameraField()].filter(Boolean),
       field(t("Kamera-URL (optional)"), p, "camera_url", { placeholder: t("leer = automatisch"), wide: true }),
       ...powerFields(), ...timelapseFields(), ...maintFields());
     item.append(el("p", { class: "note" }, t("Experimentell: für Creality-Drucker mit der normalen Firmware (K1-Serie, ohne Root). Mit Root und Moonraker besser „Klipper / Moonraker“ wählen. Dateien senden geht noch nicht.")));

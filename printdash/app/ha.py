@@ -57,9 +57,9 @@ def available() -> bool:
     return ha_api()[0] is not None
 
 
-async def power_entities() -> list:
+async def power_entities(states: list | None = None) -> list:
     """Switch-like entities for the settings dropdown."""
-    states = await _request("GET", "/states")
+    states = states if states is not None else await _request("GET", "/states")
     out = []
     for s in states:
         domain = s["entity_id"].split(".", 1)[0]
@@ -72,6 +72,26 @@ async def power_entities() -> list:
     # plugs first (switch domain), then by name
     out.sort(key=lambda e: (not e["entity_id"].startswith("switch."), e["name"].lower()))
     return out
+
+
+# -- cameras ---------------------------------------------------------------------
+async def camera_entities(states: list | None = None) -> list:
+    """Camera entities for the settings dropdown (e.g. from a printer integration)."""
+    states = states if states is not None else await _request("GET", "/states")
+    out = [{"entity_id": s["entity_id"],
+            "name": s.get("attributes", {}).get("friendly_name") or s["entity_id"]}
+           for s in states if s["entity_id"].startswith("camera.")]
+    out.sort(key=lambda e: e["name"].lower())
+    return out
+
+
+def camera_urls(entity_id: str):
+    """(stream URL, still image URL, headers) of a HA camera entity, or None."""
+    base, token = ha_api()
+    if not base or not _ENTITY_ID.match(entity_id or "") or not entity_id.startswith("camera."):
+        return None
+    return (f"{base}/camera_proxy_stream/{entity_id}", f"{base}/camera_proxy/{entity_id}",
+            {"Authorization": f"Bearer {token}"})
 
 
 # -- energy meters (smart plugs with energy measurement) -------------------------
