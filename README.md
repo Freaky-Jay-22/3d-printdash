@@ -50,27 +50,46 @@ for the Klipper printer, a spreadsheet or notes for your filament, and Home Assi
 
 ## Screenshots
 
-![Overview, detailed](https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/overview.jpg)
+**Overview**
 
-<p>
-  <img src="https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/overview-compact.jpg" alt="Overview, compact" width="49%">
-  <img src="https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/detail.jpg" alt="Printer details" width="49%">
-</p>
-<p>
-  <img src="https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/filament.png" alt="Filament" width="49%">
-  <img src="https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/history.png" alt="History" width="49%">
-</p>
-<p>
-  <img src="https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/cameras.jpg" alt="Cameras" width="49%">
-  <img src="https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/settings.png" alt="Settings" width="49%">
-</p>
-<p>
-  <img src="https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/mobile.jpg" alt="Phone: overview" width="24%">
-  <img src="https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/mobile-filament.jpg" alt="Phone: filament" width="24%">
-  <img src="https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/timelapse.gif" alt="Timelapse" width="49%">
-</p>
+![Overview](https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/overview.jpg)
 
-Overview (detailed or compact), printer details, filament, history, cameras, settings, phone and timelapse.
+**Printer details**
+
+![Printer details](https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/detail.jpg)
+
+**Filament**
+
+![Filament](https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/filament.png)
+
+**History**
+
+![History](https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/history.png)
+
+**On the phone**
+
+<img src="https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/mobile.jpg" alt="On the phone" width="420">
+
+<details>
+<summary>More screenshots</summary>
+
+**Overview, compact**
+
+![Overview, compact](https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/overview-compact.jpg)
+
+**Cameras**
+
+![Cameras](https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/cameras.jpg)
+
+**Settings**
+
+![Settings](https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/settings.png)
+
+**Timelapse**
+
+![Timelapse](https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/timelapse.gif)
+
+</details>
 
 ## Supported printers
 
