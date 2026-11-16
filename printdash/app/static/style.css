@@ -29,6 +29,16 @@
   color-scheme: light;
 }
 :root[data-theme="dark"] { color-scheme: dark; }
+/* dark design, tone "neutral": dark grey / black instead of the classic bluish dark (Settings → General → Design) */
+:root[data-tone="neutral"] { --bg: #0e0e10; --panel: #18181b; --panel-2: #222226; --line: #2f2f34; --text: #ececef; --muted: #909098; }
+@media (prefers-color-scheme: light) {
+  :root[data-tone="neutral"]:not([data-theme="dark"]) {
+    --bg: #f3f5f8; --panel: #ffffff; --panel-2: #eef1f5; --line: #d8dee6; --text: #1b2330; --muted: #5d6877;
+  }
+}
+:root[data-tone="neutral"][data-theme="light"] {
+  --bg: #f3f5f8; --panel: #ffffff; --panel-2: #eef1f5; --line: #d8dee6; --text: #1b2330; --muted: #5d6877;
+}
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 var(--font); }
 button, input, select { font: inherit; color: inherit; }
@@ -42,6 +52,8 @@ button, input, select { font: inherit; color: inherit; }
 }
 .brand { display: flex; align-items: center; gap: 11px; font-size: 21px; font-weight: 700; letter-spacing: .02em; }
 .brand-acc { color: var(--accent); }
+.cam-choice > .fields { margin: 0; }
+.cam-choice > small { display: block; margin-top: 4px; }
 .brand-mid { color: #7184a0; }
 .brand-icon { width: 42px; height: 42px; border-radius: 10px; display: block; box-shadow: 0 0 0 1px var(--line); }
 .tabs { display: flex; gap: 4px; overflow-x: auto; }
@@ -319,9 +331,7 @@ body.detail-open { overflow: hidden; }
 .sensor { background: var(--panel-2); border-radius: 8px; padding: 5px 10px; font-size: 14px; font-variant-numeric: tabular-nums; }
 .sensor.warn { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); font-weight: 600; }
 .loc-settings { border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; }
-.loaded-wrap h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .loaded { display: flex; flex-direction: column; gap: 6px; }
-.loaded-row { display: flex; flex-direction: column; gap: 4px; }
 .spools { display: flex; flex-direction: column; gap: 6px; }
 .spool { display: grid; grid-template-columns: auto 1fr auto auto auto auto; gap: 8px; align-items: center; background: var(--panel-2); border-radius: 9px; padding: 7px 8px; }
 .spool.empty { opacity: .5; }
@@ -347,21 +357,12 @@ body.detail-open { overflow: hidden; }
   .spool { grid-template-columns: auto 1fr auto; }
   .spool select { grid-column: 2 / span 1; }
 }
-.spool.in-printer { opacity: .55; }
-.in-printer-info { font-size: 12px; color: var(--info); margin-top: 2px; }
-.chip.matched { outline: 1px solid color-mix(in srgb, var(--ok) 60%, transparent); }
-.chip.clickable { cursor: pointer; border: 1px dashed var(--muted); }
-.spool.in-printer { opacity: .55; }
-.in-printer-info { font-size: 12px; color: var(--info); margin-top: 2px; }
-.chip.matched { outline: 1px solid color-mix(in srgb, var(--ok) 60%, transparent); }
-.chip.clickable { cursor: pointer; border: 1px dashed var(--muted); }
 .spool-icon { display: inline-flex; flex: none; vertical-align: middle; filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); }
 .spool-icon svg { display: block; }
 .chip .spool-icon { margin-right: 1px; }
 .loaded-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; align-items: center; }
 .loaded-badge { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
   color: var(--info); background: color-mix(in srgb, var(--info) 16%, transparent); white-space: nowrap; }
-.spool.in-printer { opacity: .6; }
 .printer-loc { border-color: color-mix(in srgb, var(--info) 45%, var(--line)); }
 .spool.loaded { grid-template-columns: auto 1fr auto; }
 .spool.loaded.active { outline: 1px solid var(--accent); }
@@ -541,3 +542,284 @@ a.btn { text-decoration: none; }
 .tl-video-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .tl-video-text b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 .overlay-actions a.btn, a.btn, a.icon-btn { color: var(--text); text-decoration: none; }
+
+/* settings: sub-tabs, printers grouped by brand, about */
+.settings-tabs { flex-wrap: wrap; }
+.settings-tabs button { white-space: nowrap; }
+:root { --brand-bambu: #00ae42; --brand-moonraker: #e6e6e9; --brand-creality: #1e88e5; --brand-prusa: #fa6831; --brand-other: #8b5cf6; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --brand-moonraker: #8b949e; } }
+:root[data-theme="light"] { --brand-moonraker: #8b949e; }
+.brand-bambu { --brand: var(--brand-bambu); }
+.brand-moonraker { --brand: var(--brand-moonraker); }
+.brand-creality { --brand: var(--brand-creality); }
+.brand-other { --brand: var(--brand-other); }
+.brand-group { border-left: 4px solid var(--brand); padding-left: 14px; margin: 18px 0 8px; }
+.brand-group-head { margin-bottom: 10px; }
+.brand-group-head h4 { margin: 0; font-size: 16px; color: var(--brand); }
+.brand-group-head h4 .tag { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 8px; }
+.brand-group-head h4 .note { color: var(--muted); font-weight: 400; }
+.tested { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.tested .chip { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--brand) 45%, var(--line)); }
+.tested-ask { margin: 6px 0 0; }
+.tested-ask a { color: var(--accent); }
+.brand-group .item, .cam-item[class*="brand-"] { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); }
+.cam-item[class*="brand-"] { border-left: 4px solid var(--brand); }
+.btn.brand-btn { border-color: var(--brand); color: var(--brand); background: color-mix(in srgb, var(--brand) 10%, transparent); }
+.btn.brand-btn:hover { background: color-mix(in srgb, var(--brand) 20%, transparent); }
+/* inside a printer: titled blocks, the less important options folded */
+.pgroup { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.item > .pgroup:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+.pgroup-cont { margin-top: 4px; padding-top: 0; border-top: 0; }
+.pgroup > .sub-head { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.pgroup > .note { margin: -2px 0 8px; }
+.orient > .fields { margin: 0; }
+.pmore { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.pmore > summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.pmore > summary .note { font-weight: 400; }
+.pmore[open] > summary { margin-bottom: 4px; }
+.about-links { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 12px; }
+.about-link { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel-2); color: var(--text); text-decoration: none; }
+.about-link:hover { border-color: var(--accent); }
+/* cameras view: a camera that belongs to a printer shows that printer's brand colour */
+.cam-tile[class*="brand-"] { border-top: 3px solid var(--brand); }
+/* filament storage: weight stands out, colour code and note step back */
+.spool { padding: 8px 10px; gap: 10px; }
+.spool .title { font-size: 14.5px; }
+.spool .sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 2px; white-space: normal; }
+.spool .sub .remain { color: var(--text); font-weight: 600; }
+.spool .sub .cname { color: var(--text); opacity: .8; }
+.spool .sub .hex { font-size: 11px; opacity: .55; font-family: ui-monospace, monospace; }
+.spool .sub .snote { font-style: italic; opacity: .8; }
+.spool .loaded-badges .note { font-size: 12px; opacity: .8; }
+.settings-section > .pgroup:first-of-type { border-top: 0; padding-top: 0; margin-top: 4px; }
+/* history: each print shows the brand colour of its printer */
+.job[class*="brand-"] { border-left: 4px solid var(--brand); }
+/* legend of the brand colours (cameras view, history): small and quiet */
+.brand-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: flex-end; margin: 0 2px 8px; font-size: 11.5px; color: var(--muted); }
+.brand-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.brand-legend i { width: 10px; height: 3px; border-radius: 2px; background: var(--brand); }
+/* filament: locations of a printer (AMS, box, external holder) and «loaded in printers» in the brand colour */
+.fil-loc.brand-loc { border-left: 4px solid var(--brand); }
+.loaded-group { border-left: 3px solid var(--brand); padding-left: 10px; margin: 6px 0 12px; display: flex; flex-direction: column; gap: 6px; }
+.loaded-group-head { font-size: 13px; color: var(--brand); }
+.loaded-group-head .note { color: var(--muted); font-weight: 400; }
+.loaded-tabs { flex-wrap: wrap; margin-bottom: 8px; }
+.loaded-tabs button { padding: 6px 10px; font-size: 13px; }
+.loaded-tabs button[class*="brand-"].active { border-bottom-color: var(--brand); }
+/* overview: switch compact / detailed (per browser) */
+.overview-tools { display: flex; justify-content: flex-end; margin: -4px 0 10px; }
+.progress-row { display: flex; align-items: center; gap: 10px; }
+.progress-row .progress { flex: 1; }
+.progress-row .pct { display: none; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cam-ovl, .card .slots { display: none; }
+/* detailed: one wide card per row, camera left with the values on it, slots as large spools on the right */
+.printer-grid.detailed { grid-template-columns: 1fr; }
+.printer-grid.detailed .card { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); grid-template-rows: auto 1fr; }
+.printer-grid.detailed .card > .cam { grid-column: 1; grid-row: 1; }
+.printer-grid.detailed .card > .cam-extras { grid-column: 1; grid-row: 2; align-self: start; }
+.printer-grid.detailed .card > .card-body { grid-column: 2; grid-row: 1 / span 2; }
+.printer-grid.detailed .time-row, .printer-grid.detailed .card .chips:not(.actions) { display: none; }
+.printer-grid.detailed .progress-row .pct { display: inline; }
+.printer-grid.detailed .progress { height: 10px; }
+.printer-grid.detailed .cam-ovl { display: block; position: absolute; inset: 0; pointer-events: none; }
+.ovl-left, .ovl-right { position: absolute; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 8px; }
+.ovl-left { left: 10px; } .ovl-right { right: 10px; }
+.ovl-chip { display: inline-flex; align-items: baseline; gap: 5px; padding: 5px 10px; border-radius: 999px; font-variant-numeric: tabular-nums;
+  background: rgba(15, 17, 21, .72); color: #f2f4f7; backdrop-filter: blur(6px); border: 1px solid rgba(255, 255, 255, .12); font-size: 13px; }
+.ovl-chip small { color: rgba(242, 244, 247, .65); font-size: 11px; }
+.ovl-chip b { font-weight: 650; }
+.ovl-chip.on { border-color: color-mix(in srgb, var(--accent) 70%, transparent); }
+.ovl-chip.bad b { color: #ff7b72; }
+.ovl-time { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); text-align: center; padding: 6px 14px; border-radius: 10px;
+  background: rgba(15, 17, 21, .78); color: #f2f4f7; border: 1px solid rgba(255, 255, 255, .12); backdrop-filter: blur(6px); }
+.ovl-time b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+.ovl-time small { color: rgba(242, 244, 247, .65); font-size: 11px; }
+.ovl-layer { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); padding: 4px 12px; border-radius: 999px; font-size: 12.5px;
+  background: rgba(15, 17, 21, .78); color: #f2f4f7; border: 1px solid rgba(255, 255, 255, .12); font-family: var(--mono); }
+.printer-grid.detailed .card .slots { display: flex; flex-direction: column; gap: 10px; }
+.printer-grid.detailed .card .slots[hidden] { display: none; }
+.slot-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.slot { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 6px 8px; border-radius: 12px; background: var(--panel-2);
+  border: 1px solid var(--line); text-align: center; min-width: 0; }
+.slot b { font-size: 13px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot small { color: var(--muted); font-size: 11px; }
+.slot.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; background: color-mix(in srgb, var(--accent) 10%, var(--panel-2)); }
+.slot.empty { opacity: .6; }
+.slot-spool { position: relative; }
+@media (max-width: 900px) {
+  .printer-grid.detailed .card { display: flex; }
+}
+@media (max-width: 520px) {
+  .ovl-chip { padding: 3px 7px; font-size: 11.5px; } .ovl-time b { font-size: 15px; }
+}
+.ovl-left, .ovl-right { align-items: flex-start; }
+.ovl-right { align-items: flex-end; }
+/* detailed (wide screens): extra cameras as small pictures in the bottom-right corner of the main camera,
+   instead of a row below it (no empty grey area) */
+@media (min-width: 901px) {
+  .printer-grid.detailed .card > .cam-extras { grid-row: 1; grid-column: 1; align-self: end; justify-self: end; z-index: 2;
+    display: flex; gap: 6px; padding: 0; margin: 0 10px 10px 0; background: none; }
+  .printer-grid.detailed .card > .cam-extras[hidden] { display: none; }
+  .printer-grid.detailed .cam-extras .cam.mini { width: clamp(120px, 14vw, 220px); border-radius: 8px; overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, .25); box-shadow: 0 4px 14px rgba(0, 0, 0, .45); }
+  .printer-grid.detailed .card { grid-template-rows: auto; }
+  .printer-grid.detailed .card > .card-body { grid-row: 1; }
+}
+.slot-spool { display: flex; flex-direction: column; align-items: center; }
+.slot-row { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+@media (max-width: 520px) { .slot-row { grid-template-columns: repeat(4, 1fr); gap: 6px; } .slot { padding: 8px 2px 6px; } .slot .spool-icon, .slot .spool-icon svg { width: 46px !important; height: 46px !important; } }
+/* overview «detailed»: two columns on very wide screens (large monitor / TV) */
+@media (min-width: 1800px) { .printer-grid.detailed { grid-template-columns: 1fr 1fr; } }
+/* printer details: simpler side panel – values as tiles, filament as spools, the rest folded */
+.detail-side .slots { display: flex; flex-direction: column; gap: 10px; }
+.detail-side .slots[hidden] { display: none; }
+.detail-side .progress-row .pct { display: inline; }
+.stat-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.stat-tiles[hidden] { display: none; }
+.stat-tile { display: flex; flex-direction: column; gap: 2px; padding: 9px 11px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); min-width: 0; }
+.stat-tile b { font-size: 19px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat-tile small { color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat-tile.on { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+details.fold > summary { display: flex; align-items: baseline; gap: 10px; cursor: pointer; list-style: none; }
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary h4 { margin: 0; }
+details.fold > summary::after { content: "▸"; margin-left: auto; color: var(--muted); transition: transform .15s; }
+details.fold[open] > summary::after { transform: rotate(90deg); }
+details.fold[open] > summary { margin-bottom: 10px; }
+details.fold > summary .note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+details.fold > summary .note.warn { color: var(--warn); }
+.stat-tiles { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+.stat-tile b { font-size: 18px; }
+.detail-side .slot-row { grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 6px; }
+.detail-side .slot { padding: 8px 4px 6px; }
+.detail-side .slot .spool-icon, .detail-side .slot .spool-icon svg { width: 54px !important; height: 54px !important; }
+details.fold:not([open]) { gap: 0; }
+.stat-tile { position: relative; }
+.tile-icon { position: absolute; top: 8px; right: 10px; font-size: 17px; line-height: 1; opacity: .9; }
+.stat-tile b { padding-right: 22px; }
+/* overview cards (compact): values without boxes, emoji instead of words, spools with material only */
+.card .chips { gap: 4px 12px; align-items: center; }
+.card .chip.temp, .card .chip.fil, .card .chip.ams { background: none; padding: 2px 0; }
+.card .chip.temp .ico { font-size: 13px; }
+.card .chip.temp.active { outline: none; color: var(--accent); }
+.card .chip.fil { gap: 4px; }
+.card .chip.fil.active { outline: none; font-weight: 650; color: var(--accent); }
+.card .chip.ams b { color: var(--muted); font-weight: 500; }
+.card .monitor-note { display: none; }
+.card .chip.temp .lbl { color: var(--muted); }
+.tile-icon { font-size: 15px; opacity: .85; }
+/* overview card: temperatures as small tiles, filament in its own box (clear separation) */
+.card .chips { gap: 6px; }
+.mtile { display: flex; flex-direction: column; gap: 1px; padding: 6px 10px; border-radius: 8px; background: var(--panel-2); min-width: 64px; }
+.mtile b { font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mtile b .muted { font-size: 12px; font-weight: 400; color: var(--muted); }
+.mtile small { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.mtile.on { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent); }
+.mtile.on b { color: var(--accent); }
+.fil-box { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.fil-box-head { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--muted); }
+.fil-climate { display: inline-flex; gap: 10px; font-variant-numeric: tabular-nums; }
+.fil-climate b { font-weight: 600; color: var(--text); }
+.fil-climate .bad { color: var(--bad); font-weight: 600; }
+.fil-box-spools { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.fil-ext { display: inline-flex; align-items: center; gap: 8px; padding-left: 14px; border-left: 1px solid var(--line); }
+.fil-ext small { color: var(--muted); font-size: 11.5px; }
+.slots .fil-box { gap: 10px; }
+.slot.ext { position: relative; margin-left: 10px; }
+.slot.ext::before { content: ""; position: absolute; left: -9px; top: 10%; bottom: 10%; border-left: 1px solid var(--line); }
+.slot small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.detail-side .slot.ext { margin-left: 0; }
+.detail-side .slot.ext::before { display: none; }
+
+/* ---------- phone (narrow screens) ---------- */
+.tab-ico { display: block; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+@media (max-width: 640px) {
+  /* main menu: all five entries visible, icon above a small label (no hidden «Einstellungen») */
+  .topbar { gap: 6px; padding: 8px 8px 4px; }
+  .brand { font-size: 17px; gap: 8px; }
+  .brand-icon { width: 30px; height: 30px; }
+  .tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; overflow: visible; }
+  .tabs button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 2px; font-size: 10.5px; min-width: 0; }
+  .tabs button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .tab-ico { display: block; }
+  /* system bar: one line that can be swiped instead of two lines covering the content */
+  .sysbar { flex-wrap: nowrap; overflow-x: auto; white-space: nowrap; padding: 6px 12px; gap: 12px; font-size: 11.5px; scrollbar-width: none; }
+  body.sysbar-on main { padding-bottom: 46px; }
+  /* camera of a printer that is off: a slim bar instead of a big black box */
+  .cam.cam-off { aspect-ratio: 32 / 9; }
+  /* spool rows: name on top, counter / move / edit / delete in one row below */
+  .spool:not(.loaded) { grid-template-columns: auto auto 1fr auto auto; gap: 6px 8px; }
+  .spool:not(.loaded) > .spool-icon { grid-row: 1 / span 2; grid-column: 1; }
+  .spool:not(.loaded) > .spool-main { grid-row: 1; grid-column: 2 / -1; }
+  .spool:not(.loaded) > .counter { grid-row: 2; grid-column: 2; }
+  .spool:not(.loaded) > select { grid-row: 2; grid-column: 3; max-width: none; width: 100%; }
+  .spool:not(.loaded) > .icon-btn:nth-last-child(2) { grid-row: 2; grid-column: 4; }
+  .spool:not(.loaded) > .icon-btn:last-child { grid-row: 2; grid-column: 5; }
+  .spool .spool-main .title { white-space: normal; }
+}
+/* main menu like on the phone (wish of the user 13.11.): icon above the label, also on larger screens */
+.tabs button { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 14px; font-size: 12.5px; min-width: 76px; }
+@media (max-width: 640px) { .tabs button { padding: 5px 2px; font-size: 10.5px; min-width: 0; } }
+
+/* overview cards: brand colour stripe on top (like cameras, history, filament) */
+.printer-grid .card[class*="brand-"] { border-top: 3px solid var(--brand); }
+/* printer off / not reachable: dimmed card with a slim camera bar, so the active printers stand out */
+.printer-grid { align-items: start; }
+.card.is-off { opacity: .55; filter: grayscale(.6); transition: opacity .15s; }
+.card.is-off:hover { opacity: .9; }
+.card.is-off > .cam { aspect-ratio: 32 / 9; }
+.card.is-off > .cam-extras { display: none; }
+/* history: printer buttons instead of the dropdown */
+.hist-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 10px; border-bottom: 1px solid var(--line); }
+.hist-tabs[hidden] { display: none; }
+.hist-tabs button { background: none; border: 0; color: var(--muted); padding: 8px 12px; border-bottom: 2px solid transparent; font-size: 13.5px; cursor: pointer; margin-bottom: -1px; }
+.hist-tabs button:hover { color: var(--text); }
+.hist-tabs button.active { color: var(--text); font-weight: 600; border-bottom-color: var(--brand, var(--accent)); }
+/* summaries in history and filament: tiles with a small symbol */
+#history-stats .stat, #filament-summary .stat { position: relative; background: var(--panel-2); padding: 9px 34px 9px 12px; min-width: 104px; }
+#history-stats .stat b, #filament-summary .stat b { font-size: 20px; }
+#history-stats .stat i, #filament-summary .stat i { position: absolute; top: 8px; right: 10px; font-style: normal; font-size: 14px; opacity: .85; }
+@media (max-width: 640px) {
+  #history-stats .stat, #filament-summary .stat { min-width: 0; padding: 7px 28px 7px 10px; }
+  #history-stats .stat b, #filament-summary .stat b { font-size: 17px; }
+}
+@media (max-width: 640px) {
+  #history-stats, #filament-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; width: 100%; }
+  #history-stats .stat b, #filament-summary .stat b { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #history-stats .stat i, #filament-summary .stat i { top: 6px; right: 7px; font-size: 12px; }
+  #history-stats .stat, #filament-summary .stat { padding: 7px 22px 7px 9px; }
+}
+
+/* own symbols (replace emojis; drawn for this project) */
+.sym { width: 1em; height: 1em; vertical-align: -0.15em; flex: none; }
+.sym-warn { color: var(--warn); }
+.sym-bad { color: var(--bad); }
+.sym-ok { color: var(--ok); }
+.sym-active { color: var(--accent); }
+.icon-btn .sym, .seg-btn .sym { width: 1.1em; height: 1.1em; }
+
+/* symbols larger and clearer (user feedback 16.11.: too small to tell apart) */
+.sym { width: 1.3em; height: 1.3em; vertical-align: -0.28em; stroke-width: 1.8; }
+.tile-icon, #history-stats .stat i, #filament-summary .stat i { font-size: 22px; opacity: .9; }
+.tile-icon .sym, #history-stats .stat i .sym, #filament-summary .stat i .sym { width: 1em; height: 1em; vertical-align: top; }
+.icon-btn .sym, .seg-btn .sym { width: 1.35em; height: 1.35em; }
+.mtile .sym, .ovl-chip .sym { width: 1.25em; height: 1.25em; }
+@media (max-width: 640px) {
+  .tile-icon, #history-stats .stat i, #filament-summary .stat i { font-size: 19px; top: 7px; right: 8px; }
+}
+#history-stats .stat:has(> i), #filament-summary .stat:has(> i), .stat-tile:has(> .tile-icon) { padding-right: 40px; }
+@media (max-width: 640px) { #history-stats .stat:has(> i), #filament-summary .stat:has(> i) { padding-right: 32px; } }
+
+/* symbol colours (16.11.): accent parts in each symbol's own colour, main menu in the accent colour */
+.sym .a { stroke: var(--sym-a, currentColor); }
+.sym .af { fill: var(--sym-a, currentColor); }
+.sym { --sym-a: var(--sym-tint, currentColor); }
+.tabs .sym, .sym.tab-ico { --sym-a: var(--accent); }
+.sym.tab-ico { width: 20px; height: 20px; vertical-align: 0; }
+/* state colours always win */
+.sym.sym-warn { color: var(--warn); --sym-a: currentColor; }
+.sym.sym-bad { color: var(--bad); --sym-a: currentColor; }
+.sym.sym-ok { color: var(--ok); --sym-a: currentColor; }
+.sym.sym-active { color: var(--accent); --sym-a: currentColor; }
+.test-switch { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border, rgba(127,127,127,.2)); }

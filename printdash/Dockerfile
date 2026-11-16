@@ -9,6 +9,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
+# version shown in Settings -> About
+COPY config.yaml ./config.yaml
 
 ENV PRINTDASH_DATA=/data \
     PYTHONUNBUFFERED=1

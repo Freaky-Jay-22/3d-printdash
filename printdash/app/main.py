@@ -6,7 +6,6 @@ import hashlib
 import logging
 import os
 import re
-import secrets
 import tempfile
 from contextlib import asynccontextmanager
 
@@ -47,6 +46,23 @@ def _asset_version() -> str:
 
 
 ASSET_VERSION = _asset_version()
+
+
+def _app_version() -> str:
+    """Version from config.yaml (copied into the image next to the app folder); empty if not found."""
+    path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.yaml")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                m = re.match(r'^version:\s*"?([^"\s]+)"?', line)
+                if m:
+                    return m.group(1)
+    except OSError:
+        pass
+    return ""
+
+
+APP_VERSION = _app_version()
 _ASSET_RE = re.compile(r'((?:src|href)="static/[^"?]+\.(?:js|css))"')
 
 
@@ -181,12 +197,13 @@ async def index():
 @app.get("/api/state")
 async def get_state(request: Request):
     st = manager.state()
+    st["version"] = APP_VERSION
     st["auth"] = {"enabled": bool(_password_hash()),
                   "ingress": bool(request.client and request.client.host == INGRESS_IP),
                   # PRINTDASH_NO_PASSWORD_WARNING=1: port only reachable from the same machine
                   # (e.g. behind hass_ingress), the warning bar is not needed
                   "warn": os.environ.get("PRINTDASH_NO_PASSWORD_WARNING", "").lower() not in ("1", "true", "yes")}
-    # test build (dev/make_test_app.py sets PRINTDASH_TEST=1): orange bar in the interface
+    # test build (environment PRINTDASH_TEST=1): orange bar in the interface
     st["test_build"] = bool(os.environ.get("PRINTDASH_TEST"))
     return st
 
@@ -631,6 +648,8 @@ async def put_config(body: dict, request: Request):
         new_cfg["ui"]["language"] = ""
     if new_cfg["ui"].get("theme") not in ("", None, "light", "dark"):
         new_cfg["ui"]["theme"] = ""
+    if new_cfg["ui"].get("tone") not in ("", None, "neutral"):
+        new_cfg["ui"]["tone"] = ""
     if not re.fullmatch(r"#[0-9a-fA-F]{6}", str(new_cfg["ui"].get("accent") or "")):
         new_cfg["ui"]["accent"] = ""
     orient = {}

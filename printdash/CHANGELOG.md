@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.11
+
+**English**
+- New look: own symbols instead of emojis, new menu, brand colours per printer (cards, cameras, history, settings)
+- Overview: **compact or detailed**, extra cameras as picture in picture
+- Settings in tabs, printers grouped by brand, new "About" tab
+- Printer details simpler, history with a tab per printer, much better on the phone
+- Dark design: classic or neutral
+- Camera: one choice for the source, Klipper camera can also come from Home Assistant
+- Creality: unknown states during a print no longer split the print in two
+
+**Deutsch**
+- Neues Aussehen: eigene Symbole statt Emojis, neues Menü, Markenfarben pro Drucker (Karten, Kameras, Historie, Einstellungen)
+- Übersicht: **kompakt oder ausführlich**, weitere Kameras als Bild im Bild
+- Einstellungen in Tabs, Drucker nach Marke gruppiert, neuer Tab «Über»
+- Druckerdetails einfacher, Historie mit einem Tab pro Drucker, viel besser auf dem Handy
+- Dunkles Design: klassisch oder neutral
+- Kamera: Quelle als eine Auswahl, Klipper-Kamera auch über Home Assistant
+- Creality: unbekannte Zustände während eines Drucks teilen den Druck nicht mehr in zwei
+
 ## 0.3.10
 
 **English**

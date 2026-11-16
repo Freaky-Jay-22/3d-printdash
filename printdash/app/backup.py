@@ -5,7 +5,6 @@ maintenance.json, history.db and the images in snapshots/. Restoring first saves
 the current state to /data/backups/ so nothing gets lost by accident.
 """
 import asyncio
-import io
 import json
 import logging
 import os
@@ -168,7 +167,7 @@ async def restore(manager, files: dict, keep_password: bool = True) -> dict:
             "jobs": len(jobs)}
 
 
-# -- import from another running installation (also the former PrintFarm) -----------
+# -- import from another running installation -----------
 MASK = config_store.MASK
 
 
@@ -259,11 +258,3 @@ async def fetch_remote(url: str, password: str = "") -> tuple[dict, list]:
     files["filament.json"] = json.dumps({k: v for k, v in fil.items() if k in keep}, indent=2, ensure_ascii=False).encode()
     files["history.db"] = _history_db(rows)
     return files, todo
-
-
-def to_zip_bytes(files: dict) -> bytes:
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        for name, data in files.items():
-            z.writestr(name, data)
-    return buf.getvalue()

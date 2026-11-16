@@ -25,14 +25,6 @@ def file_stem(name) -> str:
     return re.sub(r"[\s_]+", "", base).lower()
 
 
-def fmt_duration(seconds) -> str:
-    if seconds is None:
-        return "–"
-    seconds = int(seconds)
-    h, m = divmod(seconds // 60, 60)
-    return f"{h} h {m:02d} min" if h else f"{m} min"
-
-
 class Manager:
     def __init__(self):
         self.cfg = config_store.load()
@@ -197,7 +189,8 @@ class Manager:
             "costs": costs.settings(self.cfg),
             "language": (self.cfg.get("ui") or {}).get("language") or "",
             "theme": {"mode": (self.cfg.get("ui") or {}).get("theme") or "",
-                      "accent": (self.cfg.get("ui") or {}).get("accent") or ""},
+                      "accent": (self.cfg.get("ui") or {}).get("accent") or "",
+                      "tone": (self.cfg.get("ui") or {}).get("tone") or ""},
             "filament_low_g": float((self.cfg.get("filament") or {}).get("low_warn_g") or 0),
             "system": system.snapshot() if (self.cfg.get("ui") or {}).get("show_system", True) else None,
             "rooms": rooms.view(self.cfg.get("rooms") or [], self.room_data),

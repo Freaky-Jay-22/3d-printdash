@@ -113,15 +113,6 @@ def location(data: dict, loc_id: str) -> dict | None:
     return next((loc for loc in data["locations"] if loc["id"] == loc_id), None)
 
 
-def default_location(data: dict, in_printer: bool = False) -> str:
-    """First location (or the first one marked 'in the printer', e.g. the AMS)."""
-    if in_printer:
-        for loc in data["locations"]:
-            if loc.get("in_printer"):
-                return loc["id"]
-    return data["locations"][0]["id"]
-
-
 def save(data: dict) -> None:
     with _lock:
         os.makedirs(DATA_DIR, exist_ok=True)
@@ -695,11 +686,6 @@ DRY_GUIDE = {
     "PLA": (50, 6), "PETG": (65, 6), "ABS": (70, 4), "ASA": (70, 4), "TPU": (55, 6),
     "PA": (80, 10), "PC": (80, 8), "PVA": (55, 8), "HIPS": (65, 4),
 }
-
-
-def dry_guide(material: str):
-    fam = _family(material)
-    return DRY_GUIDE.get(fam)
 
 
 def _new_dryer(n: int) -> dict:

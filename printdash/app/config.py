@@ -6,7 +6,7 @@ import os
 import secrets
 import threading
 
-DATA_DIR = os.environ.get("PRINTDASH_DATA") or os.environ.get("PRINTFARM_DATA") or "/data"
+DATA_DIR = os.environ.get("PRINTDASH_DATA") or "/data"
 CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
 
 SECRET_FIELDS = {"access_code", "api_key", "password"}
@@ -48,7 +48,8 @@ DEFAULT_CONFIG = {
     },
     # language "" = browser language; show_system = load bar at the bottom of the overview
     # theme "" = like the device, "light" / "dark"; accent "" = standard blue or a colour like "#22c55e"
-    "ui": {"password": "", "language": "", "show_system": True, "theme": "", "accent": ""},
+    # tone "" = classic dark (bluish), "neutral" = dark grey / black
+    "ui": {"password": "", "language": "", "show_system": True, "theme": "", "accent": "", "tone": ""},
 }
 
 _lock = threading.Lock()

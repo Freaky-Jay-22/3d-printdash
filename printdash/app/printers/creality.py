@@ -79,6 +79,7 @@ class CrealityPrinter(BasePrinter):
         self._seen: set = set()
         self._err_ignored = None  # error code that was already there when connecting
         self._cam_note = False
+        self._unknown_codes: set = set()
 
     # -- lifecycle -------------------------------------------------------
     async def start(self):
@@ -216,7 +217,12 @@ class CrealityPrinter(BasePrinter):
             elif code in ACTIVE_CODES:
                 state = "preparing"
             else:
-                state = "idle"
+                # a code we do not know yet: while a file is loaded, keep it as a running job
+                # (otherwise the job would end as "unknown" and start again as a new one)
+                state = "printing" if (_int(d.get("printJobTime")) or 0) > 0 else "preparing"
+                if code not in self._unknown_codes:
+                    self._unknown_codes.add(code)
+                    log.info("%s: unknown state %s with a file loaded, treated as %s", self.name, code, state)
         else:
             state = "idle"
         if 1 <= self_test <= 99 and state == "idle":

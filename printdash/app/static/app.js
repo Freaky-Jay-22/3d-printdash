@@ -51,6 +51,9 @@ const STATE_LABEL = {
 const ACTIVE = ["preparing", "printing", "paused"];
 const TEMP_LABEL = { nozzle: t("Düse"), bed: t("Bett"), chamber: t("Kammer") };
 const tempLabel = (key) => TEMP_LABEL[key] || key;
+// thermometer symbol; fill = temperature relative to a typical maximum, accent colour while heating
+const TEMP_MAX = { bed: 120, chamber: 60 };
+const tempIcon = (key, cur = null, active = false) => sym("thermo", { level: cur == null ? null : cur / (TEMP_MAX[key] || 300), active });
 const MAINT_NAME = { clean: "Drucker reinigen", lube: "Schmieren" };
 const maintName = (id) => t(MAINT_NAME[id] || id);
 
@@ -82,7 +85,7 @@ function fmtFilament(g, m, cost) {
 }
 function fmtEnergy(kwh, cost) {
   if (kwh === null || kwh === undefined) return "";
-  return [`⚡ ${Number(kwh).toFixed(kwh < 10 ? 2 : 1)} kWh`, fmtCost(cost)].filter(Boolean).join(" · ");
+  return [`${Number(kwh).toFixed(kwh < 10 ? 2 : 1)} kWh`, fmtCost(cost)].filter(Boolean).join(" · ");
 }
 function fmtMaterials(list) {
   return (list || []).map((x) => `${x.type} ${Math.round(x.g)} g`).join(" · ");
@@ -98,27 +101,47 @@ const icon = (path) => {
   return s;
 };
 // Spool symbol: grey flange, coloured filament ring (fill level optional), hub with holes
+// spool seen from the front: dark flange, wound filament in its colour (fine windings, soft light), metal hub.
+// fill 0..1 = how much filament is left (width of the winding). Vector graphic, sharp at every size.
+let spoolSeq = 0;
 function spoolIcon(color, { size = 22, fill = 1, empty = false } = {}) {
   const safe = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(color || "");
-  const c = empty || !safe ? "transparent" : color;
+  const hex = safe ? (color.length === 4 ? "#" + [...color.slice(1)].map((ch) => ch + ch).join("") : color.slice(0, 7)) : "#8c929c";
+  const mix = (k) => {  // k < 0 darker, k > 0 lighter
+    const v = parseInt(hex.slice(1), 16), m = k < 0 ? 0 : 255, a = Math.abs(k);
+    return `rgb(${[v >> 16, (v >> 8) & 255, v & 255].map((x) => Math.round(x + (m - x) * a)).join(",")})`;
+  };
+  const id = `sp${++spoolSeq}`;
   const f = Math.max(0.08, Math.min(1, Number.isFinite(fill) ? fill : 1));
-  const rOuter = 8 + 12 * f;            // filament ring radius 8..20 (of 24)
-  const holes = [0, 72, 144, 216, 288].map((a) => {
-    const r = (a * Math.PI) / 180;
-    return `<circle cx="${(24 + 4.3 * Math.cos(r)).toFixed(1)}" cy="${(24 + 4.3 * Math.sin(r)).toFixed(1)}" r="1.1" fill="var(--panel)"/>`;
+  const r = 10 + 11 * f;                 // outer radius of the winding (10..21 of 24)
+  const showFil = !empty && (safe || color);
+  const windings = Array.from({ length: Math.ceil((r - 10) / 0.55) }, (_, i) =>
+    `<circle cx="24" cy="24" r="${(10 + i * 0.55).toFixed(2)}" fill="none" stroke="rgba(0,0,0,.10)" stroke-width=".18"/>`).join("");
+  const holes = [0, 72, 144, 216, 288].map((deg) => {
+    const t = ((deg - 90) * Math.PI) / 180;
+    return `<circle cx="${(24 + 5 * Math.cos(t)).toFixed(2)}" cy="${(24 + 5 * Math.sin(t)).toFixed(2)}" r="1" fill="#6b737e"/>`;
   }).join("");
   const wrap = document.createElement("span");
   wrap.className = "spool-icon";
   wrap.style.width = wrap.style.height = `${size}px`;
   wrap.innerHTML = `<svg viewBox="0 0 48 48" width="${size}" height="${size}" aria-hidden="true">
-    <circle cx="24" cy="24" r="23" fill="#5b6370"/>
-    <circle cx="24" cy="24" r="21.5" fill="#3a414b"/>
-    ${empty ? `<circle cx="24" cy="24" r="19" fill="none" stroke="#5b6370" stroke-width="1" stroke-dasharray="2 3"/>`
-      : `<circle cx="24" cy="24" r="${rOuter.toFixed(1)}" fill="${c}" stroke="rgba(0,0,0,.25)" stroke-width="0.8"/>
-         <circle cx="24" cy="24" r="${(rOuter - 2.5).toFixed(1)}" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="0.8"/>`}
-    <circle cx="24" cy="24" r="6.8" fill="#cfd5dc"/>
+    <defs>
+      <radialGradient id="${id}f" cx="40%" cy="35%" r="75%"><stop offset="0" stop-color="#535a66"/><stop offset="1" stop-color="#262a31"/></radialGradient>
+      <radialGradient id="${id}w" cx="24" cy="24" r="${r.toFixed(2)}" gradientUnits="userSpaceOnUse">
+        <stop offset="${(10 / r).toFixed(2)}" stop-color="${mix(-0.35)}"/><stop offset=".55" stop-color="${hex}"/><stop offset="1" stop-color="${mix(-0.2)}"/></radialGradient>
+      <linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="rgba(255,255,255,.45)"/><stop offset=".45" stop-color="rgba(255,255,255,0)"/></linearGradient>
+      <radialGradient id="${id}h" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#f1f3f6"/><stop offset="1" stop-color="#9aa3ae"/></radialGradient>
+    </defs>
+    <circle cx="24" cy="24" r="23" fill="url(#${id}f)" stroke="#6a717c" stroke-width=".8"/>
+    <circle cx="24" cy="24" r="21.6" fill="none" stroke="rgba(255,255,255,.1)" stroke-width=".6"/>
+    ${showFil ? `<circle cx="24" cy="24" r="${r.toFixed(2)}" fill="url(#${id}w)"/>${windings}
+      <circle cx="24" cy="24" r="${r.toFixed(2)}" fill="url(#${id}g)" opacity=".7"/>
+      <circle cx="24" cy="24" r="${r.toFixed(2)}" fill="none" stroke="rgba(255,255,255,.38)" stroke-width=".9"/>`
+      : `<circle cx="24" cy="24" r="19" fill="none" stroke="#6a717c" stroke-width=".8" stroke-dasharray="2 2.5"/>`}
+    <circle cx="24" cy="24" r="9.5" fill="url(#${id}h)" stroke="rgba(0,0,0,.35)" stroke-width=".5"/>
+    <circle cx="24" cy="24" r="7.2" fill="none" stroke="rgba(0,0,0,.18)" stroke-width=".5"/>
     ${holes}
-    <circle cx="24" cy="24" r="2" fill="var(--panel)"/>
+    <circle cx="24" cy="24" r="2.6" fill="#1b1e23"/>
   </svg>`;
   return wrap;
 }
@@ -131,6 +154,163 @@ const ICONS = {
   upload: "M9 16v-6H5l7-7 7 7h-4v6zm-4 4v-2h14v2z",
   power: "M16.56 5.44l-1.45 1.45A5.97 5.97 0 0 1 18 12a6 6 0 0 1-12 0c0-2.17 1.16-4.06 2.88-5.12L7.44 5.44A7.96 7.96 0 0 0 4 12a8 8 0 0 0 16 0c0-2.72-1.36-5.12-3.44-6.56M13 3h-2v10h2z",
 };
+
+/* ---------- own line symbols (replace emojis in the UI) ---------- */
+// All drawn for this project (MIT). 24x24, line style, colour from currentColor.
+// sym(name, opts) returns an <svg class="sym">; symSvg() returns the markup string.
+// Accent parts carry class "a" (stroke) or "af" (fill). They use var(--sym-a), which falls back to currentColor:
+//   content symbols: own colour from SYM_TINT (set as --sym-tint by symSvg)
+//   main menu: var(--accent); state colours (warn/bad/ok/active) always win -> see style.css
+// Dynamic: battery {level 0..100|null}, drop {level, warn}, thermo {level 0..1|null, active},
+// clock {level 0..1}, spoolStarted {level 0..1}, wrench {due}.
+const SYM_GEAR = (() => {
+  const pts = [];
+  for (let i = 0; i < 8; i++) {
+    const a = (i * Math.PI) / 4;
+    for (const [d, r] of [[-0.24, 6.6], [-0.15, 9.2], [0.15, 9.2], [0.24, 6.6]]) {
+      pts.push(`${(12 + r * Math.cos(a + d)).toFixed(2)} ${(12 + r * Math.sin(a + d)).toFixed(2)}`);
+    }
+  }
+  return `<path d="M${pts.join("L")}Z"/><circle class="a" cx="12" cy="12" r="2.8"/>`;
+})();
+
+const SYMBOLS = {
+  // main menu (tabs)
+  tabOverview: `<rect x="3.5" y="3.5" width="7.5" height="10" rx="1.6"/><rect class="a" x="13" y="3.5" width="7.5" height="6" rx="1.6"/><rect x="13" y="11.5" width="7.5" height="9" rx="1.6"/><rect x="3.5" y="15.5" width="7.5" height="5" rx="1.6"/>`,
+  tabCameras: `<path d="M3.5 8.5a2 2 0 0 1 2-2h2.3l1.6-2.2h5.2l1.6 2.2h2.3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><circle class="a" cx="12" cy="13" r="3.6"/><path d="M17.3 9.3h.01"/>`,
+  tabHistory: `<path d="M4.2 13.2A8 8 0 1 0 6.3 6.4M3.8 3.8v3.6h3.6"/><path class="a" d="M12 8v4.3l2.9 1.8"/>`,
+  tabSettings: SYM_GEAR,
+  // content symbols
+  bolt: `<path class="a" d="M13 2.5 5.5 13.5H11l-1 8 7.5-11H12z"/>`,
+  film: `<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 9.5h4M3 14.5h4M17 9.5h4M17 14.5h4"/><path class="a af" d="M10.5 9.8v4.4l3.6-2.2z"/>`,
+  stop: `<rect class="a" x="6" y="6" width="12" height="12" rx="2"/>`,
+  gauge: `<path d="M4.6 17.5a8.5 8.5 0 1 1 14.8 0"/><path class="a" d="M12 13.5l3.6-4.2"/><circle cx="12" cy="13.5" r="1.3"/>`,
+  layoutClassic: `<rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M14.5 4.5v15"/><path class="a" d="M17 9h1.5M17 12h1.5M17 15h1.5"/>`,
+  layoutStack: `<rect x="4" y="3.5" width="16" height="7.5" rx="1.5"/><rect class="a" x="4" y="13" width="16" height="7.5" rx="1.5"/>`,
+  layoutPip: `<rect x="3" y="4.5" width="18" height="15" rx="2"/><rect class="a" x="13" y="12" width="5.5" height="5" rx="1"/>`,
+  layoutSide: `<rect x="2.5" y="6" width="8.5" height="12" rx="1.5"/><rect class="a" x="13" y="6" width="8.5" height="12" rx="1.5"/>`,
+  fullscreen: `<path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/>`,
+  back: `<path d="M19 12H5M11 6l-6 6 6 6"/>`,
+  close: `<path d="M6 6l12 12M18 6 6 18"/>`,
+  check: `<path class="a" d="M5 12.5l4.5 4.5L19 7"/>`,
+  arrowRight: `<path d="M5 12h14M13 6l6 6-6 6"/>`,
+  arrowUp: `<path d="M12 19V5M6 11l6-6 6 6"/>`,
+  arrowDown: `<path d="M12 5v14M6 13l6 6 6-6"/>`,
+  printer: `<rect x="3.5" y="3" width="17" height="18" rx="2"/><rect x="9.5" y="6" width="5" height="3.5" rx=".8"/><path class="a" d="M11 9.5l1 1.7 1-1.7"/><rect class="a" x="9.5" y="13.5" width="5" height="4" rx=".5"/><path d="M6 17.5h12"/>`,
+  coins: `<ellipse cx="7.5" cy="6.5" rx="4.5" ry="2"/><path d="M3 6.5v4.2c0 1.1 2 2 4.5 2s4.5-.9 4.5-2V6.5M3 10.7v4.3c0 1.1 2 2 4.5 2"/><circle class="a" cx="16.5" cy="15.5" r="4.5"/><circle class="a" cx="16.5" cy="15.5" r="1.8"/>`,
+  chart: `<rect x="5.5" y="12" width="3" height="6" rx=".6"/><rect class="a" x="10.5" y="6" width="3" height="12" rx=".6"/><rect x="15.5" y="9" width="3" height="9" rx=".6"/><path d="M3.5 20.5h17"/>`,
+  download: `<path class="a" d="M12 4v11M7 10.5l5 5 5-5"/><path d="M5 20h14"/>`,
+  trash: `<path d="M4 7h16M10 7V4.5h4V7M6 7l1 13h10l1-13"/><path class="a" d="M10 11v5.5M14 11v5.5"/>`,
+  weight: `<path d="M9.5 7a2.5 2.5 0 1 1 5 0"/><path d="M7.5 7h9l3.2 13.5H4.3z"/><text class="af" x="12" y="17.6" text-anchor="middle" font-family="system-ui,sans-serif" font-size="6.6" font-weight="700" fill="currentColor" stroke="none">kg</text>`,
+  dryer: `<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 8.5h17"/><path class="a" d="M8.5 11c-1 1.1 1 2.2 0 3.3s1 2.2 0 3.3M12 11c-1 1.1 1 2.2 0 3.3s1 2.2 0 3.3M15.5 11c-1 1.1 1 2.2 0 3.3s1 2.2 0 3.3"/>`,
+  hand: `<path d="M8 13.5V5.5a1.5 1.5 0 0 1 3 0V11M11 11V4a1.5 1.5 0 0 1 3 0v7M14 11V5.5a1.5 1.5 0 0 1 3 0V12M17 12V8.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1.6a6 6 0 0 1-4.9-2.6L4.3 15a1.6 1.6 0 0 1 2.6-1.9L8 14.5"/>`,
+  returnTo: `<path class="a" d="M9 14l-5-5 5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>`,
+  gear: SYM_GEAR,
+  pencil: `<path d="M4 20l1-4.5L15.5 5a2.1 2.1 0 0 1 3 3L8 18.5z"/><path class="a" d="M13.5 7l3 3"/>`,
+  flask: `<path class="af" fill="currentColor" fill-opacity=".35" stroke="none" d="M7.6 14.5h8.8l2.6 4a1.5 1.5 0 0 1-1.3 2.2H6.3A1.5 1.5 0 0 1 5 18.5z"/><path d="M9 3.5h6M10.5 3.5v5.5L5 18.5a1.5 1.5 0 0 0 1.3 2.2h11.4a1.5 1.5 0 0 0 1.3-2.2L13.5 9V3.5"/><path class="a" d="M7.6 14.5h8.8"/>`,
+  warning: `<path d="M10.3 4.5a2 2 0 0 1 3.4 0l7.5 13a2 2 0 0 1-1.7 3H4.5a2 2 0 0 1-1.7-3z"/><path class="a" d="M12 9.5v4.5M12 17.3v.01"/>`,
+};
+
+// own colour of each symbol for the "colour" variant (accent parts only); readable on light and dark
+const SYM_TINT = {
+  tabOverview: "#38a3e8", tabCameras: "#38a3e8", tabHistory: "#38a3e8", tabFilament: "#f28c28", tabSettings: "#38a3e8",
+  thermo: "#f0643a", bolt: "#e5a50a", drop: "#3b9dff", battery: "#3fb950", wrench: "#8b949e",
+  film: "#a477f2", stop: "#f0643a", gauge: "#3b9dff",
+  layoutClassic: "#38a3e8", layoutStack: "#38a3e8", layoutPip: "#38a3e8", layoutSide: "#38a3e8",
+  check: "#3fb950", printer: "#f28c28", clock: "#38a3e8", spool: "#f28c28", spoolNew: "#f28c28",
+  spoolStarted: "#f28c28", coins: "#e5a50a", chart: "#38a3e8", download: "#38a3e8", trash: "#f0643a",
+  weight: "#f28c28", dryer: "#f0643a", returnTo: "#38a3e8", gear: "#8b949e", pencil: "#38a3e8",
+  flask: "#a477f2", warning: "#e5a50a",
+};
+
+let symClipId = 0;
+const symClamp = (v) => Math.max(0, Math.min(1, v));
+
+// spool seen from the front; level 0..1 = how much filament is left
+function symSpool({ level = 1, strand = false, sparkle = false } = {}) {
+  const [cx, cy, R] = sparkle ? [10.5, 13.5, 8.5] : [12, 12, 9.5];
+  const hub = R * 0.3, rMax = R * 0.74;
+  const rf = hub + 0.6 + (rMax - hub - 0.6) * symClamp(level);
+  let s = `<circle cx="${cx}" cy="${cy}" r="${R}"/>`;
+  s += `<path class="af" fill="currentColor" fill-opacity=".35" stroke="none" fill-rule="evenodd" d="M${cx - rf} ${cy}a${rf} ${rf} 0 1 0 ${2 * rf} 0a${rf} ${rf} 0 1 0 ${-2 * rf} 0zM${cx - hub} ${cy}a${hub} ${hub} 0 1 0 ${2 * hub} 0a${hub} ${hub} 0 1 0 ${-2 * hub} 0z"/>`;
+  s += `<circle class="a" cx="${cx}" cy="${cy}" r="${rf.toFixed(2)}"/><circle cx="${cx}" cy="${cy}" r="${hub.toFixed(2)}"/>`;
+  s += `<circle cx="${cx}" cy="${cy}" r=".9" fill="currentColor" stroke="none"/>`;
+  if (strand) s += `<path class="a" d="M18.7 5.3q2.3-.4 2.8-2.8"/>`;
+  if (sparkle) s += `<path class="a af" fill="currentColor" stroke-width="1" d="M19.5 1.8q.5 2.2 2.7 2.7-2.2.5-2.7 2.7-.5-2.2-2.7-2.7 2.2-.5 2.7-2.7z"/>`;
+  return s;
+}
+
+const SYM_DYNAMIC = {
+  tabFilament: () => symSpool(),
+  spool: () => symSpool({ strand: true }),
+  spoolNew: () => symSpool({ sparkle: true }),
+  spoolStarted: ({ level = 0.45 } = {}) => symSpool({ level, strand: true }),
+  battery: ({ level = null } = {}) => {
+    let s = `<rect x="2.5" y="7" width="17" height="10" rx="2"/><path d="M21.5 10.5v3"/>`;
+    if (level != null && Number.isFinite(+level)) {
+      const w = Math.max(+level > 0 ? 1.2 : 0, 13 * symClamp(+level / 100));
+      if (w) s += `<rect class="af" x="4.5" y="9" width="${w.toFixed(2)}" height="6" rx=".8" fill="currentColor" stroke="none"/>`;
+    }
+    return s;
+  },
+  drop: ({ level = null } = {}) => {
+    const d = "M12 3.2C10 6 6 10 6 14a6 6 0 0 0 12 0c0-4-4-8-6-10.8z";
+    let s = `<path class="a" d="${d}"/>`;
+    if (level != null && Number.isFinite(+level)) {
+      const id = `symc${++symClipId}`, y = 20 - 16.8 * symClamp(+level / 100);
+      s += `<clipPath id="${id}"><path d="${d}"/></clipPath><rect class="af" x="5" y="${y.toFixed(2)}" width="14" height="${(21 - y).toFixed(2)}" clip-path="url(#${id})" fill="currentColor" fill-opacity=".45" stroke="none"/>`;
+    }
+    return s;
+  },
+  thermo: ({ level = null } = {}) => {
+    const f = level == null || !Number.isFinite(+level) ? 0.45 : symClamp(+level);
+    const top = 15 - 9.5 * f;
+    return `<path d="M9.6 13.2V5.4a2.4 2.4 0 0 1 4.8 0v7.8a4.3 4.3 0 1 1-4.8 0z"/>`
+      + `<circle class="af" cx="12" cy="16.8" r="2" fill="currentColor" stroke="none"/>`
+      + (f > 0 ? `<rect class="af" x="11.15" y="${top.toFixed(2)}" width="1.7" height="${(16.5 - top).toFixed(2)}" rx=".85" fill="currentColor" stroke="none"/>` : "");
+  },
+  clock: ({ level = null } = {}) => {
+    let s = "";
+    if (level != null && Number.isFinite(+level) && +level > 0) {
+      const f = symClamp(+level);
+      if (f >= 1) s += `<circle class="af" cx="12" cy="12" r="8.5" fill="currentColor" fill-opacity=".3" stroke="none"/>`;
+      else {
+        const a = f * 2 * Math.PI, x = 12 + 8.5 * Math.sin(a), y = 12 - 8.5 * Math.cos(a);
+        s += `<path class="af" d="M12 12V3.5A8.5 8.5 0 ${f > 0.5 ? 1 : 0} 1 ${x.toFixed(2)} ${y.toFixed(2)}z" fill="currentColor" fill-opacity=".3" stroke="none"/>`;
+      }
+    }
+    return s + `<circle cx="12" cy="12" r="8.5"/><path class="a" d="M12 7.5V12l3 2"/>`;
+  },
+  wrench: ({ due = false } = {}) =>
+    `<path d="M15.5 3.5a4.5 4.5 0 0 0-4.2 6.1L4.2 16.7a2 2 0 0 0 2.8 2.8l7.1-7.1a4.5 4.5 0 0 0 6.1-4.2L17.6 8.8l-2.4-.6-.6-2.4z"/>`
+    + (due ? `<circle cx="5" cy="5" r="2.3" fill="currentColor" stroke="none"/>` : ""),
+};
+
+// class for state colours: battery < 20 % -> bad, drop over limit -> warn, thermo heating -> active, wrench due -> warn
+function symStateClass(name, opts) {
+  if (name === "battery" && opts.level != null && +opts.level < 20) return "sym-bad";
+  if (name === "drop" && opts.warn) return "sym-warn";
+  if (name === "thermo" && opts.active) return "sym-active";
+  if (name === "wrench" && opts.due) return "sym-warn";
+  return opts.state ? `sym-${opts.state}` : "";
+}
+
+function symSvg(name, opts = {}) {
+  const body = SYM_DYNAMIC[name] ? SYM_DYNAMIC[name](opts) : SYMBOLS[name];
+  if (body == null) return "";
+  const cls = ["sym", symStateClass(name, opts), opts.class || ""].filter(Boolean).join(" ");
+  const tint = SYM_TINT[name] ? ` style="--sym-tint:${SYM_TINT[name]}"` : "";
+  return `<svg class="${cls}"${tint} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${body}</svg>`;
+}
+
+function sym(name, opts = {}) {
+  const t = document.createElement("template");
+  t.innerHTML = symSvg(name, opts);
+  return t.content.firstElementChild || document.createTextNode("");
+}
+// static symbols in index.html: <span data-sym="name"></span>
+document.querySelectorAll("[data-sym]").forEach((n) => n.replaceWith(sym(n.dataset.sym, { class: n.className })));
+
 
 /* ---------- camera streams over WebSocket ---------- */
 // One WebSocket per visible camera. Avoids the browser's 6-connection limit
@@ -228,12 +408,12 @@ function openVideoOverlay(src, title, jobId = null, onDeleted = null) {
   actions.hidden = jobId == null;
   if (jobId != null) {
     actions.replaceChildren(
-      el("a", { class: "btn", href: `${src}?download=1`, download: "" }, t("⬇ Herunterladen")),
+      el("a", { class: "btn", href: `${src}?download=1`, download: "" }, sym("download"), " ", t("Herunterladen")),
       el("button", { class: "btn danger", onclick: async () => {
         if (!(await deleteTimelapse(jobId))) return;
         closeOverlay();
         onDeleted?.();
-      } }, t("🗑 Zeitraffer löschen")));
+      } }, sym("trash"), " ", t("Zeitraffer löschen")));
   }
   ov.hidden = false;
 }
@@ -320,6 +500,8 @@ function applyTheme(theme) {
   const root = document.documentElement;
   const mode = theme?.mode || "";
   if (mode) root.dataset.theme = mode; else delete root.dataset.theme;
+  const tone = theme?.tone === "neutral" ? "neutral" : "";
+  if (tone) root.dataset.tone = tone; else delete root.dataset.tone;
   const acc = /^#[0-9a-f]{6}$/i.test(theme?.accent || "") ? theme.accent : "";
   if (acc) {
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(acc.slice(i, i + 2), 16) / 255);
@@ -330,19 +512,28 @@ function applyTheme(theme) {
     root.style.removeProperty("--accent");
     root.style.removeProperty("--accent-ink");
   }
-  try { localStorage.setItem("pd-theme", JSON.stringify({ mode, accent: acc })); } catch { /* private mode */ }
+  try { localStorage.setItem("pd-theme", JSON.stringify({ mode, accent: acc, tone })); } catch { /* private mode */ }
 }
 try { applyTheme(JSON.parse(localStorage.getItem("pd-theme") || "null")); } catch { /* ignore */ }
 
 /* ---------- test build: orange bar so it is never mistaken for the real one ---------- */
+// the bar can be hidden per browser (Settings → About, test build only), e.g. for README screenshots
+const TEST_BANNER_KEY = "pd-test-banner-off";
+const testBannerOff = () => { try { return localStorage.getItem(TEST_BANNER_KEY) === "1"; } catch { return false; } };
+function setTestBannerOff(off) {
+  try { off ? localStorage.setItem(TEST_BANNER_KEY, "1") : localStorage.removeItem(TEST_BANNER_KEY); } catch { /* ignore */ }
+  renderTestBanner();
+}
 function renderTestBanner() {
   const b = $("#test-banner");
-  const on = !!lastState?.test_build;
+  const test = !!lastState?.test_build;
+  const on = test && !testBannerOff();
   b.hidden = !on;
   if (on && !b.childElementCount) {
-    b.append(el("b", {}, t("🧪 TESTVERSION")), el("span", {}, t("Zum Ausprobieren neuer Funktionen. Die normale Version währenddessen stoppen.")));
-    document.title = `TEST · ${document.title}`;
+    b.append(el("b", {}, sym("flask"), " ", t("TESTVERSION")), el("span", {}, t("Zum Ausprobieren neuer Funktionen. Die normale Version währenddessen stoppen.")));
   }
+  const base = document.title.replace(/^TEST · /, "");
+  document.title = on ? `TEST · ${base}` : base;
 }
 
 /* ---------- warning: direct access without a password ---------- */
@@ -352,7 +543,7 @@ function renderPasswordBanner() {
   const show = !!a && !a.enabled && !a.ingress && a.warn !== false;
   b.hidden = !show;
   if (show && !b.childElementCount) {
-    b.append(el("span", {}, t("⚠️ Direkter Zugriff ohne Passwort: Jedes Gerät in deinem Netzwerk kann Drucker steuern und Kameras sehen.")),
+    b.append(el("span", {}, sym("warning", { state: "warn" }), " ", t("Direkter Zugriff ohne Passwort: Jedes Gerät in deinem Netzwerk kann Drucker steuern und Kameras sehen.")),
       el("button", { class: "btn mini", onclick: () => showView("settings") }, t("Passwort setzen")));
   }
 }
@@ -402,7 +593,13 @@ function renderSysbar() {
 const cards = new Map(); // printer id -> {node, camId, ...}
 
 /* ---------- room climate (top of the overview, optional) ---------- */
-const ROOM_ICONS = { temp: "🌡", hum: "💧", voc: "VOC", co2: "CO₂", pm25: "PM2.5", pressure: "⏲", bat: "🔋" };
+// symbol per room sensor (VOC, CO₂ and PM2.5 stay as text)
+const ROOM_ICONS = { voc: "VOC", co2: "CO₂", pm25: "PM2.5" };
+const roomIcon = (it) => (it.key === "temp" ? sym("thermo", { level: it.value != null ? it.value / 40 : null })
+  : it.key === "hum" ? sym("drop", { level: it.value, warn: it.level === "warn" || it.level === "bad" })
+  : it.key === "pressure" ? sym("gauge")
+  : it.key === "bat" ? sym("battery", { level: it.value })
+  : ROOM_ICONS[it.key] || "");
 function roomValue(it) {
   const v = it.value;
   if (v == null) return "–";
@@ -430,12 +627,36 @@ function renderRooms() {
   bar.replaceChildren(...rooms.map((r) => el("div", { class: "room" },
     el("b", { class: "room-name" }, r.name || t("Raum")),
     ...r.items.map((it) => el("span", { class: `sensor${it.level ? " " + it.level : ""}`, title: roomTitle(it, r.limits) },
-      it.key === "bat" && it.value != null && it.value < 20 ? "🪫" : ROOM_ICONS[it.key], " ", roomValue(it))))));
+      roomIcon(it), " ", roomValue(it))))));
 }
 
+// layout of the overview (per browser): "compact" = cards as before, "detailed" = wide card with the values on
+// the camera image and the filament slots as large spools
+const OVERVIEW_LAYOUTS = [["compact", "Kompakt"], ["detailed", "Ausführlich"]];
+let overviewLayout = (() => {
+  try { return localStorage.getItem("pd-overview-layout") === "detailed" ? "detailed" : "compact"; } catch { return "compact"; }
+})();
+function renderOverviewTools() {
+  const box = $("#overview-tools");
+  box.hidden = !(lastState?.printers || []).length;
+  if (box.childElementCount) {
+    for (const b of box.querySelectorAll(".seg-btn")) b.classList.toggle("active", b.dataset.layout === overviewLayout);
+    return;
+  }
+  box.append(el("div", { class: "seg", role: "group", "aria-label": t("Ansicht") },
+    ...OVERVIEW_LAYOUTS.map(([key, label]) => el("button", { type: "button", class: `seg-btn std${key === overviewLayout ? " active" : ""}`,
+      "data-layout": key, onclick: () => {
+        overviewLayout = key;
+        try { localStorage.setItem("pd-overview-layout", key); } catch { /* private mode */ }
+        $("#printer-grid").classList.toggle("detailed", key === "detailed");
+        renderOverviewTools();
+      } }, t(label)))));
+}
 function renderOverview() {
   if (!lastState) return;
   renderRooms();
+  renderOverviewTools();
+  $("#printer-grid").classList.toggle("detailed", overviewLayout === "detailed");
   const grid = $("#printer-grid");
   const printers = lastState.printers;
   $("#empty-overview").hidden = printers.length > 0;
@@ -458,8 +679,12 @@ function buildCard(p) {
   const node = el("article", { class: "card", "data-id": p.id });
   const cam = el("div", { class: "cam" });
   const extras = el("div", { class: "cam-extras", hidden: true });
+  const ovl = el("div", { class: "cam-ovl" });
+  cam.append(ovl);
   const c = {
-    node, cam, extras, camId: null, camKey: "",
+    node, cam, extras, ovl, camId: null, camKey: "",
+    slots: el("div", { class: "slots" }),
+    pct: el("span", { class: "pct" }),
     badge: el("span", { class: "badge" }),
     file: el("div", { class: "file" }),
     thumb: el("img", { class: "job-thumb", alt: "", hidden: true }),
@@ -481,7 +706,8 @@ function buildCard(p) {
     extras,
     el("div", { class: "card-body" },
       el("div", { class: "card-head" }, el("h2", {}, p.name), c.badge),
-      el("div", { class: "file-row" }, c.thumb, c.file), c.progress, c.time, c.temps, c.fils, c.alerts, c.actions),
+      el("div", { class: "file-row" }, c.thumb, c.file), el("div", { class: "progress-row" }, c.progress, c.pct),
+      c.time, c.temps, c.fils, c.slots, c.alerts, c.actions),
   );
   return c;
 }
@@ -500,6 +726,7 @@ function camPausedText(p, id) {
 }
 function showCamera(box, p, id) {
   const why = camPausedText(p, id);
+  box.classList.toggle("cam-off", !!why);  // printer off / not reachable: smaller box on phones
   if (!why) { attachCamera(box, id); return; }
   box.querySelectorAll("img, .cam-msg").forEach((n) => n.remove());
   box.append(el("div", { class: "cam-msg" }, why));
@@ -512,6 +739,7 @@ function setCameras(c, p) {
   const [main, ...rest] = p.cameras;
   c.camId = main || null;
   c.cam.querySelectorAll("img, .cam-msg, .cam-label").forEach((n) => n.remove());
+  c.cam.append(c.ovl);  // keep the overlay on top of the new image
   if (!main) {
     c.cam.append(el("div", { class: "cam-msg" }, t("Keine Kamera")));
   } else {
@@ -531,6 +759,11 @@ function setCameras(c, p) {
 
 function updateCard(c, p) {
   c.node.className = `${c.baseClass || "card"} state-${p.state}`;
+  if (!c.baseClass) {
+    // overview card: brand colour stripe on top; printer off / not reachable: dimmed, slim camera bar
+    c.node.classList.add(`brand-${brandOf(p)}`);
+    c.node.classList.toggle("is-off", p.state === "off" || !p.online);
+  }
   c.badge.className = `badge ${p.state}`;
   c.badge.textContent = STATE_LABEL[p.state] || p.state;
 
@@ -570,43 +803,95 @@ function updateCard(c, p) {
   }
   c.time.hidden = !c.time.childElementCount;
 
-  // temps
-  c.temps.innerHTML = "";
-  for (const tp of p.temps) {
-    const target = tp.target ? el("span", { class: "muted" }, ` / ${Math.round(tp.target)}°`) : "";
-    c.temps.append(el("span", { class: `chip${tp.active ? " active" : ""}` }, `${tempLabel(tp.label)} ${tp.cur === null ? "–" : Math.round(tp.cur)}°`, target));
+  // temperatures (+ power) as small tiles: value on top, thermometer + name below – clearly separated
+  const mtile = (value, label, sub = "", cls = "", title = "") => el("div", { class: `mtile ${cls}`, title },
+    el("b", {}, value, sub ? el("span", { class: "muted" }, sub) : ""), el("small", {}, label));
+  c.temps.replaceChildren(...p.temps.map((tp) => mtile(tp.cur === null ? "–" : `${Math.round(tp.cur)}°`,
+    [tempIcon(tp.label, tp.cur, tp.active), " ", tempLabel(tp.label)], tp.target ? ` / ${Math.round(tp.target)}°` : "", tp.active ? "on" : "")));
+  if (p.power?.watts != null && p.power.on !== false) {
+    const w = p.power.watts;
+    c.temps.append(mtile(w >= 1000 ? `${(w / 1000).toFixed(2)} kW` : `${Math.round(w)} W`, [sym("bolt"), " ", t("Leistung")], "", "", t("Aktuelle Leistung der Steckdose")));
   }
+  c.temps.hidden = !c.temps.childElementCount;
+
+  // filament: one box per printer with the AMS / box climate in its header and the spools below
+  const climate = amsClimate(p);
+  // the external spool (holder on the back) is not part of the AMS: shown after a divider
+  const fil = (f) => el("span", { class: `chip fil${f.active ? " active" : ""}`,
+    title: [slotName(f.slot), f.vendor, f.remain != null ? t("{0} % übrig", f.remain) : ""].filter(Boolean).join(" · ") },
+    spoolIcon(f.color, { size: 22, empty: !f.type, fill: f.remain != null ? f.remain / 100 : 1 }),
+    f.type || t("leer"));
+  const inner = p.filaments.filter((f) => String(f.slot) !== "Ext").map(fil);
+  const ext = p.filaments.filter((f) => String(f.slot) === "Ext").map(fil);
+  const spools = [...inner, ...(ext.length ? [el("span", { class: "fil-ext" }, el("small", {}, t("Extern")), ...ext)] : [])];
+  c.fils.replaceChildren(...(climate.length || spools.length ? [el("div", { class: "fil-box" },
+    climate.length ? el("div", { class: "fil-box-head" }, ...climate) : "",
+    spools.length ? el("div", { class: "fil-box-spools" }, ...spools) : "")] : []));
+  c.fils.hidden = !c.fils.childElementCount;
+
+  // detailed layout: values on the camera image and the slots as large spools (hidden by CSS in the compact layout).
+  // Only the overview cards have these parts – the printer details use the same function without them.
+  if (c.ovl) updateDetailedParts(c, p, showProgress);
+  updateCardRest(c, p);
+}
+
+function updateDetailedParts(c, p, showProgress) {
+  c.pct.textContent = showProgress ? `${Math.round(p.progress)} %` : "";
+  const active = ACTIVE.includes(p.state);
+  c.ovl.replaceChildren(
+    el("div", { class: "ovl-left" }, ...p.temps.map((tp) => el("span", { class: `ovl-chip${tp.active ? " on" : ""}` },
+      el("small", {}, tempLabel(tp.label)),
+      el("b", {}, tp.cur === null ? "–" : `${Math.round(tp.cur)}°`),
+      tp.target ? el("small", {}, `/${Math.round(tp.target)}°`) : ""))),
+    active && p.remaining_s != null ? el("div", { class: "ovl-time" }, el("b", {}, fmtDuration(p.remaining_s)),
+      el("small", {}, t("fertig ca. {0}", fmtEta(p.remaining_s)))) : "",
+    active && p.total_layers ? el("div", { class: "ovl-layer" }, t("Schicht {0}/{1}", p.layer ?? 0, p.total_layers)) : "",
+    p.power?.watts != null && p.power.on !== false ? el("div", { class: "ovl-right" }, el("span", { class: "ovl-chip" },
+      el("small", {}, t("Leistung")), el("b", {}, `${Math.round(p.power.watts)} W`))) : "");
+  buildSlots(c.slots, p);
+}
+
+// filament slots as large spools (+ AMS climate): overview «detailed» and printer details
+// AMS / box climate as one line per unit: «AMS temp · humidity · battery» (cards, detailed overview, details)
+function amsClimate(p) {
+  const climate = [];
   for (const a of p.ams || []) {
     const parts = [];
     const humMax = Number(p.ams_hum_max) || 30;
     const own = a.src === "ha";
     const show = (k) => own ? a.configured?.[k] : a[k] != null;
-    if (show("temp")) parts.push(el("span", {}, `🌡 ${a.temp != null ? a.temp.toFixed(1) + "°" : "–"}`));
+    if (show("temp")) parts.push(el("span", {}, sym("thermo", { level: a.temp != null ? a.temp / 60 : null }), ` ${a.temp != null ? a.temp.toFixed(1) + "°" : "–"}`));
     if (show("hum")) parts.push(el("span", { class: a.hum != null && a.hum > humMax ? "bad" : "", title: t("Warnung ab {0} %", humMax) },
-      `💧 ${a.hum != null ? Math.round(a.hum) + " %" : "–"}`));
-    else if (!own && a.hum_level) parts.push(el("span", { title: t("Feuchtigkeitsstufe vom AMS (1–5)") }, t("💧 Stufe {0}", a.hum_level)));
+      sym("drop", { level: a.hum, warn: a.hum != null && a.hum > humMax }), ` ${a.hum != null ? Math.round(a.hum) + " %" : "–"}`));
+    else if (!own && a.hum_level) parts.push(el("span", { title: t("Feuchtigkeitsstufe vom AMS (1–5)") }, sym("drop", { level: a.hum_level * 20 }), " ", t("Stufe {0}", a.hum_level)));
     if (show("bat")) parts.push(el("span", { class: a.bat != null && a.bat < 20 ? "bad" : "", title: t("Batterie des Sensors") },
-      `${a.bat != null && a.bat < 20 ? "🪫" : "🔋"} ${a.bat != null ? Math.round(a.bat) + " %" : "–"}`));
-    if (!parts.length) continue;
-    c.temps.append(el("span", { class: "chip ams", title: `${a.name} · ${own ? t("eigener Sensor (Home Assistant)") : t("Werte vom AMS")}` },
+      sym("battery", { level: a.bat }), ` ${a.bat != null ? Math.round(a.bat) + " %" : "–"}`));
+    if (parts.length) climate.push(el("span", { class: "fil-climate", title: `${a.name} · ${own ? t("eigener Sensor (Home Assistant)") : t("Werte vom AMS")}` },
       el("b", {}, a.name), ...parts));
   }
-  if (p.power?.watts != null && p.power.on !== false) {
-    const w = p.power.watts;
-    c.temps.append(el("span", { class: "chip", title: t("Aktuelle Leistung der Steckdose") },
-      `⚡ ${w >= 1000 ? (w / 1000).toFixed(2) + " kW" : Math.round(w) + " W"}`));
-  }
-  c.temps.hidden = !c.temps.childElementCount;
+  return climate;
+}
 
-  // filaments (AMS)
-  c.fils.innerHTML = "";
-  for (const f of p.filaments) {
-    c.fils.append(el("span", { class: `chip${f.active ? " active" : ""}`, title: [f.vendor, f.remain != null ? t("{0} % übrig", f.remain) : ""].filter(Boolean).join(" · ") },
-      spoolIcon(f.color, { size: 18, empty: !f.type, fill: f.remain != null ? f.remain / 100 : 1 }),
-      `${f.slot} ${f.type || t("leer")}`));
+function buildSlots(box, p) {
+  box.replaceChildren();
+  const tileOf = (f) => el("div", {
+    class: `slot${f.active ? " active" : ""}${f.type ? "" : " empty"}${String(f.slot) === "Ext" ? " ext" : ""}`,
+    title: [f.vendor, f.type].filter(Boolean).join(" · ") },
+    el("div", { class: "slot-spool" }, spoolIcon(f.color, { size: 72, empty: !f.type, fill: f.remain != null ? f.remain / 100 : 1 })),
+    el("b", {}, f.type || t("leer")),
+    // remaining amount (if the printer reports it) in its own line, so nothing covers the spool
+    el("small", {}, [f.remain != null && f.type ? `${f.remain} %` : "", slotName(f.slot)].filter(Boolean).join(" · ")));
+  const climate = amsClimate(p);
+  if (p.filaments.length || climate.length) {
+    // same as the compact card: one box, climate on top, spools below; the external spool after a divider
+    box.append(el("div", { class: "fil-box" },
+      climate.length ? el("div", { class: "fil-box-head" }, ...climate) : "",
+      p.filaments.length ? el("div", { class: "slot-row" }, ...p.filaments.map(tileOf)) : ""));
   }
-  c.fils.hidden = !p.filaments.length;
+  box.hidden = !box.childElementCount;
+}
 
+function updateCardRest(c, p) {
   // alerts
   c.alerts.innerHTML = "";
   if (p.error) c.alerts.append(el("div", { class: "alert" }, p.error));
@@ -616,7 +901,7 @@ function updateCard(c, p) {
   }
   if (p.cmd_message) c.alerts.append(el("div", { class: "alert warn" }, p.cmd_message));
   const dueTasks = (p.maintenance || []).filter((m) => m.due);
-  if (dueTasks.length) c.alerts.append(el("div", { class: "alert warn" }, t("🔧 Wartung fällig: {0}", dueTasks.map((m) => maintName(m.id)).join(", "))));
+  if (dueTasks.length) c.alerts.append(el("div", { class: "alert warn" }, sym("wrench", { due: true }), " ", t("Wartung fällig: {0}", dueTasks.map((m) => maintName(m.id)).join(", "))));
   if (p.timelapse && ACTIVE.includes(p.state)) {
     const tl = p.timelapse;
     const toggle = (on) => async (e) => {
@@ -628,10 +913,10 @@ function updateCard(c, p) {
       } catch (err) { toast(err.message, "bad"); e.target.disabled = false; }
     };
     c.alerts.append(el("div", { class: "tl-note" },
-      tl.active ? t("🎞 Zeitraffer läuft · {0}", tn(tl.frames, "{0} Bild", "{0} Bilder"))
-        : (tl.frames ? t("🎞 Zeitraffer gestoppt · {0}", tn(tl.frames, "{0} Bild", "{0} Bilder")) : ""),
+      tl.active ? [sym("film"), " ", t("Zeitraffer läuft · {0}", tn(tl.frames, "{0} Bild", "{0} Bilder"))]
+        : (tl.frames ? [sym("film"), " ", t("Zeitraffer gestoppt · {0}", tn(tl.frames, "{0} Bild", "{0} Bilder"))] : ""),
       el("button", { class: "btn mini", onclick: toggle(!tl.active) },
-        tl.active ? t("⏹ Zeitraffer stoppen") : t("🎞 Zeitraffer starten"))));
+        tl.active ? [sym("stop"), " ", t("Zeitraffer stoppen")] : [sym("film"), " ", t("Zeitraffer starten")])));
   }
 
   // actions
@@ -812,7 +1097,7 @@ function showPrintOptions(p, info, content, dlg) {
       sel.addEventListener("change", () => { opts.ams_map[f.id] = sel.value; });
       mappingBox.append(el("div", { class: "map-row" },
         el("span", { class: "swatch", style: `background:${f.color || "transparent"}` }),
-        el("span", {}, `${f.id}: ${f.type || "?"}${f.used_g ? ` (${Math.round(f.used_g)} g)` : ""}`), "→", sel));
+        el("span", {}, `${f.id}: ${f.type || "?"}${f.used_g ? ` (${Math.round(f.used_g)} g)` : ""}`), sym("arrowRight"), sel));
     }
   }
 
@@ -856,8 +1141,16 @@ function camerasStateKey() {
   return (lastState?.cameras || []).map((cam) => cam.id + ":" +
     camPausedText(lastState.printers.find((p) => p.id === cam.printer_id), cam.id)).join("|");
 }
+// small legend of the brand colours (only the brands of the configured printers)
+function renderBrandLegend(node) {
+  const have = new Set((lastState?.printers || []).map(brandOf));
+  const items = [...PRINTER_BRANDS, ["other", t("Andere")]].filter(([k]) => have.has(k));
+  node.hidden = !items.length;
+  node.replaceChildren(...items.map(([k, name]) => el("span", { class: `brand-${k}` }, el("i", {}), name)));
+}
 function renderCameras() {
   camerasKey = camerasStateKey();
+  renderBrandLegend($("#camera-legend"));
   const grid = $("#camera-grid");
   detachCameras(grid);
   grid.innerHTML = "";
@@ -867,7 +1160,7 @@ function renderCameras() {
     const box = el("div", { class: "cam" });
     box.addEventListener("click", () => openCamOverlay(cam.id, cam.name));
     const printer = lastState.printers.find((p) => p.id === cam.printer_id);
-    grid.append(el("div", { class: "cam-tile" }, box,
+    grid.append(el("div", { class: `cam-tile${printer ? ` brand-${brandOf(printer)}` : ""}` }, box,
       el("div", { class: "label" }, el("strong", {}, cam.name),
         printer && printer.name !== cam.name ? el("span", {}, printer.name) : null)));
     showCamera(box, printer, cam.id);
@@ -881,6 +1174,13 @@ async function loadHistory() {
   filter.innerHTML = "";
   filter.append(el("option", { value: "" }, t("Alle Drucker")));
   for (const p of lastState?.printers || []) filter.append(el("option", { value: p.id, selected: p.id === selected }, p.name));
+  // buttons «All · <printer> …», the chosen one underlined in its brand colour
+  const pick = (id) => { filter.value = id; filter.dispatchEvent(new Event("change")); };
+  $("#history-tabs").replaceChildren(
+    el("button", { type: "button", class: filter.value ? "" : "active", onclick: () => pick("") }, t("Alle")),
+    ...(lastState?.printers || []).map((p) => el("button", { type: "button",
+      class: `brand-${brandOf(p)}${filter.value === p.id ? " active" : ""}`, onclick: () => pick(p.id) }, p.name)));
+  $("#history-tabs").hidden = (lastState?.printers || []).length < 2;
   let jobs = [];
   try {
     jobs = await api(`api/history${filter.value ? `?printer_id=${encodeURIComponent(filter.value)}` : ""}`);
@@ -896,14 +1196,15 @@ async function loadHistory() {
   const power = done.reduce((s, j) => s + (j.energy_cost || 0), 0);
   const stats = $("#history-stats");
   stats.innerHTML = "";
-  const stat = (v, l) => el("div", { class: "stat" }, el("b", {}, v), el("span", {}, l));
-  stats.append(stat(done.length, t("Drucke")), stat(done.length ? `${Math.round((ok / done.length) * 100)} %` : "–", t("erfolgreich")),
-    stat(failed, t("fehlgeschlagen")), stat(fmtDuration(total), t("Druckzeit")),
-    stat(grams >= 1000 ? `${(grams / 1000).toFixed(2)} kg` : `${Math.round(grams)} g`, t("Filament")),
-    ...(money ? [stat(fmtCost(money), t("Filamentkosten"))] : []),
-    ...(power ? [stat(fmtCost(power), t("Stromkosten"))] : []));
+  const stat = (v, l, icon) => el("div", { class: "stat" }, icon ? el("i", { "aria-hidden": "true" }, icon) : "", el("b", {}, v), el("span", {}, l));
+  stats.append(stat(done.length, t("Drucke"), sym("printer")), stat(done.length ? `${Math.round((ok / done.length) * 100)} %` : "–", t("erfolgreich"), sym("check")),
+    stat(failed, t("fehlgeschlagen"), sym("close")), stat(fmtDuration(total), t("Druckzeit"), sym("clock")),
+    stat(grams >= 1000 ? `${(grams / 1000).toFixed(2)} kg` : `${Math.round(grams)} g`, t("Filament"), sym("spool")),
+    ...(money ? [stat(fmtCost(money), t("Filamentkosten"), sym("coins"))] : []),
+    ...(power ? [stat(fmtCost(power), t("Stromkosten"), sym("bolt"))] : []));
 
   const list = $("#history-list");
+  renderBrandLegend($("#history-legend"));
   list.innerHTML = "";
   if (!jobs.length) list.append(el("div", { class: "empty" }, t("Noch keine Drucke aufgezeichnet.")));
   for (const j of jobs) {
@@ -917,7 +1218,9 @@ async function loadHistory() {
       const src = `api/history/${j.id}/snapshot.jpg`;
       thumb.append(el("img", { src, loading: "lazy", alt: "", onclick: () => openImageOverlay(src, j.filename || "") }));
     }
-    list.append(el("div", { class: "job" },
+    // brand colour of the printer the print came from (like in the settings and the cameras view)
+    const jp = (lastState?.printers || []).find((x) => x.id === j.printer_id);
+    list.append(el("div", { class: `job${jp ? ` brand-${brandOf(jp)}` : ""}` },
       thumb,
       el("div", {},
         el("div", { class: "title", title: j.filename || "" }, j.filename || t("Unbekannte Datei")),
@@ -925,15 +1228,15 @@ async function loadHistory() {
           j.status === "running" ? t("läuft seit ") + fmtDuration(Date.now() / 1000 - j.started_at) : fmtDuration(j.duration_s),
           fmtFilament(j.filament_g, j.filament_m, j.cost), fmtEnergy(j.energy_kwh, j.energy_cost)].filter(Boolean).join(" · ")),
         j.materials?.length > 1 ? el("div", { class: "sub" }, fmtMaterials(j.materials)) : null,
-        j.deducted?.length ? el("div", { class: "sub" }, t("🧵 abgezogen: {0}",
+        j.deducted?.length ? el("div", { class: "sub" }, sym("spool"), " ", t("abgezogen: {0}",
           j.deducted.map((d) => t("{0} {1} g (noch {2} g)", d.label, Math.round(d.g), Math.round(d.left))).join(", "))) : null,
         j.error ? el("div", { class: "err" }, j.error) : null),
       el("div", { class: "right" },
         el("span", { class: `badge ${j.status === "running" ? "printing" : j.status}` }, STATE_LABEL[j.status] || j.status),
         j.timelapse ? el("button", { class: "icon-btn", title: t("Zeitraffer ansehen"), "aria-label": t("Zeitraffer ansehen"),
-          onclick: () => openVideoOverlay(`api/history/${j.id}/timelapse.mp4`, j.filename || "", j.id, loadHistory) }, "🎞") : null,
+          onclick: () => openVideoOverlay(`api/history/${j.id}/timelapse.mp4`, j.filename || "", j.id, loadHistory) }, sym("film")) : null,
         j.timelapse ? el("a", { class: "icon-btn", href: `api/history/${j.id}/timelapse.mp4?download=1`, download: "",
-          title: t("Zeitraffer herunterladen"), "aria-label": t("Zeitraffer herunterladen") }, "⬇") : null,
+          title: t("Zeitraffer herunterladen"), "aria-label": t("Zeitraffer herunterladen") }, sym("download")) : null,
         el("button", {
           class: "icon-btn", title: t("Eintrag löschen"), "aria-label": t("Eintrag löschen"),
           onclick: async () => {
@@ -941,7 +1244,7 @@ async function loadHistory() {
             await api(`api/history/${j.id}`, { method: "DELETE" });
             loadHistory();
           },
-        }, "🗑"))));
+        }, sym("trash")))));
   }
 }
 $("#history-filter").addEventListener("change", () => { loadHistory(); if (!$("#history-statpanel").hidden) loadStats(); });
@@ -1045,19 +1348,62 @@ function field(label, obj, key, { type = "text", placeholder = "", hint = "", wi
   return el("label", { class: `field${wide ? " wide" : ""}` }, label, input, hint ? el("small", {}, hint) : null);
 }
 
+/* settings are split into sub-tabs (like Filament → Inventory / Brands); the open tab is kept per browser */
+const SETTINGS_TABS = [["printers", "Drucker|Abschnitt"], ["cameras", "Kameras"], ["notify", "Benachrichtigungen"],
+  ["filament", "Filament & Preise"], ["general", "Allgemein"], ["about", "Über"]];
+let settingsTab = (() => {
+  try { const v = localStorage.getItem("pd-settings-tab"); return SETTINGS_TABS.some(([k]) => k === v) ? v : "printers"; }
+  catch { return "printers"; }
+})();
+// printer brands with their colour (same everywhere: Bambu green, Klipper white/grey, Creality blue, others violet)
+const PRINTER_BRANDS = [["bambu", "Bambu Lab"], ["moonraker", "Klipper / Moonraker"], ["creality", "Creality"]];
+// models confirmed by us or by users (same list as in the README)
+const TESTED_PRINTERS = {
+  bambu: ["X1C", "P1S", "P2S"],
+  moonraker: ["Snapmaker U1", "Qidi Q2"],
+  creality: ["K1C"],
+};
+const brandOf = (p) => (PRINTER_BRANDS.some(([k]) => k === p?.type) ? p.type : "other");
+
 function renderSettings() {
-  const root = $("#settings");
-  root.innerHTML = "";
+  const outer = $("#settings");
+  outer.innerHTML = "";
+  const panes = Object.fromEntries(SETTINGS_TABS.map(([k]) => [k, el("div", { class: "settings-pane", "data-pane": k })]));
+  const nav = el("nav", { class: "subtabs settings-tabs", role: "tablist" },
+    ...SETTINGS_TABS.map(([k, label]) => el("button", { "data-sub": k, onclick: () => showSettingsTab(k) }, t(label))));
+  outer.append(nav, ...Object.values(panes));
+  // collects the sections; each one is moved into its tab below
+  const root = el("div");
 
   /* printers */
   const pSec = el("div", { class: "settings-section" },
     el("h3", {}, t("Drucker|Abschnitt")),
     el("p", { class: "hint" }, t("Die Drucker werden direkt im Netzwerk angesprochen. Home-Assistant-Integrationen werden nicht benötigt.")));
-  for (const p of draft.printers) pSec.append(printerItem(p));
-  pSec.append(el("div", { class: "row-btns" },
-    el("button", { class: "btn", onclick: () => { draft.printers.push({ id: "", type: "bambu", name: "Bambu Lab", host: "", serial: "", access_code: "", camera: true }); renderSettings(); } }, "+ Bambu Lab"),
-    el("button", { class: "btn", onclick: () => { draft.printers.push({ id: "", type: "moonraker", name: "Klipper", url: "", api_key: "", light_object: "", light_on_gcode: "", light_off_gcode: "", camera_url: "" }); renderSettings(); } }, "+ Klipper / Moonraker"),
-    el("button", { class: "btn", onclick: () => { draft.printers.push({ id: "", type: "creality", name: "Creality", host: "", camera: true, camera_url: "" }); renderSettings(); } }, t("+ Creality (experimentell)"))));
+  // one block per brand (always shown): tested models, its printers, "add" button in the brand colour
+  const NEW_PRINTER = {
+    bambu: () => ({ id: "", type: "bambu", name: "Bambu Lab", host: "", serial: "", access_code: "", camera: true }),
+    moonraker: () => ({ id: "", type: "moonraker", name: "Klipper", url: "", api_key: "", light_object: "", light_on_gcode: "", light_off_gcode: "", camera_url: "" }),
+    creality: () => ({ id: "", type: "creality", name: "Creality", host: "", camera: true, camera_url: "" }),
+  };
+  const known = PRINTER_BRANDS.map(([k]) => k);
+  for (const [brand, name] of [...PRINTER_BRANDS, ["other", t("Andere")]]) {
+    const list = draft.printers.filter((p) => (brand === "other" ? !known.includes(p.type) : p.type === brand));
+    if (brand === "other" && !list.length) continue;
+    const tested = TESTED_PRINTERS[brand];
+    pSec.append(el("div", { class: `brand-group brand-${brand}` },
+      el("div", { class: "brand-group-head" },
+        el("h4", {}, name, brand === "creality" ? el("span", { class: "tag" }, t("experimentell")) : null,
+          list.length ? el("span", { class: "note" }, ` · ${list.length}`) : null),
+        tested ? el("div", { class: "tested" }, el("span", { class: "note" }, t("Getestet:")),
+          ...tested.map((m) => el("span", { class: "chip" }, m))) : null,
+        tested ? el("p", { class: "note tested-ask" }, t("Dein Drucker fehlt in der Liste? Probier ihn aus oder melde dich auf "),
+          el("a", { href: `${REPO_URL}/issues`, target: "_blank", rel: "noopener" }, "GitHub"), t(" oder "),
+          el("a", { href: DISCORD_URL, target: "_blank", rel: "noopener" }, "Discord"), ".") : null),
+      ...list.map((p) => printerItem(p)),
+      NEW_PRINTER[brand] ? el("div", { class: "row-btns" },
+        el("button", { class: "btn brand-btn", onclick: () => { draft.printers.push(NEW_PRINTER[brand]()); renderSettings(); } },
+          t("+ {0} hinzufügen", name))) : null));
+  }
   root.append(pSec);
 
   /* cameras */
@@ -1066,19 +1412,25 @@ function renderSettings() {
     el("p", { class: "hint" }, t("RTSP-, RTSPS- oder MJPEG-Kameras. Ordnest du eine Kamera einem Drucker zu, erscheint sie zusätzlich auf dessen Karte und wird für Benachrichtigungsbilder verwendet.")));
   const printerOptions = [["", t("– keinem Drucker –")], ...draft.printers.filter((p) => p.id).map((p) => [p.id, p.name])];
   for (const cam of draft.cameras) {
-    cSec.append(el("div", { class: "item" },
+    const owner = draft.printers.find((p) => p.id && p.id === cam.printer_id);
+    cSec.append(el("div", { class: `item cam-item${owner ? ` brand-${brandOf(owner)}` : ""}` },
       el("div", { class: "item-head" }, el("span", {}, cam.name || t("Kamera")),
         el("button", { class: "btn danger", onclick: () => { draft.cameras.splice(draft.cameras.indexOf(cam), 1); renderSettings(); } }, t("Entfernen"))),
       el("div", { class: "fields" },
         field(t("Name"), cam, "name"),
         field(t("Stream-URL"), cam, "url", { placeholder: "rtsp://benutzer:passwort@192.168.1.50:554/stream1", wide: true }),
-        field(t("Drucker"), cam, "printer_id", { options: printerOptions }),
-        field(t("Einzelbild-URL (JPEG) statt Stream"), cam, "snapshot", { type: "checkbox" }))));
+        field(t("Drucker"), cam, "printer_id", { options: printerOptions, onchange: renderSettings }),
+        field(t("Einzelbild-URL (JPEG) statt Stream"), cam, "snapshot", { type: "checkbox" }),
+        orientFields(cam.id) || el("p", { class: "note field wide" }, t("Bild drehen und spiegeln: nach dem Speichern verfügbar.")))));
   }
   cSec.append(el("div", { class: "row-btns" },
     el("button", { class: "btn", onclick: () => { draft.cameras.push({ id: "", name: "Kamera", url: "", printer_id: "", snapshot: false }); renderSettings(); } }, t("+ Kamera"))));
   root.append(cSec);
-  root.append(orientSection());
+  root.append(el("div", { class: "settings-section" }, el("h3", {}, t("Bildrate und Grösse")),
+    el("p", { class: "hint" }, t("Gilt für alle Kameras. Weniger Bilder pro Sekunde und eine kleinere Breite entlasten den Rechner.")),
+    el("div", { class: "fields" },
+      field(t("Kamera-Bilder pro Sekunde"), draft.camera, "fps", { type: "number" }),
+      field(t("Kamera max. Breite (px)"), draft.camera, "width", { type: "number" }))));
   root.append(timelapseSection());
 
   /* room climate */
@@ -1122,12 +1474,9 @@ function renderSettings() {
   root.append(nSec);
 
   /* general */
-  root.append(filamentSettings());
   root.append(priceSection());
   const g = el("div", { class: "settings-section" }, el("h3", {}, t("Allgemein")),
     el("div", { class: "fields" },
-      field(t("Kamera-Bilder pro Sekunde"), draft.camera, "fps", { type: "number" }),
-      field(t("Kamera max. Breite (px)"), draft.camera, "width", { type: "number" }),
       field(t("Passwort für direkten Zugriff"), draft.ui, "password", { type: "password", placeholder: t("leer = kein Passwort"), hint: t("Mind. 6 Zeichen. Gilt für den direkten Zugriff über http://<ip>:<port> – dort erscheint dann eine Anmeldeseite (30 Tage angemeldet bleiben). Über die HA-Seitenleiste schützt bereits der HA-Login.") }),
       field("Sprache / Language", draft.ui, "language", { options: [["", t("Automatisch (Browsersprache)")],
         ...Object.entries(LANGUAGES)], hint: t("Gilt auch für Benachrichtigungen.") }),
@@ -1143,9 +1492,61 @@ function renderSettings() {
       location.href = "login";
     } }, t("Abmelden"))));
   }
-  root.append(el("div", { class: "savebar" },
+  // sort the sections into the tabs (in the order they were built)
+  const sec = [...root.children];
+  const byTitle = (title) => sec.find((s) => s.querySelector(":scope > h3")?.textContent === title);
+  const put = (tab, ...titles) => { for (const ti of titles) { const s = byTitle(t(ti)); if (s) panes[tab].append(s); } };
+  put("printers", "Drucker|Abschnitt");
+  const camLegend = el("div", { class: "brand-legend" });
+  renderBrandLegend(camLegend);
+  panes.cameras.append(camLegend);
+  put("cameras", "Externe Kameras", "Bildrate und Grösse", "Zeitraffer");
+  put("notify", "Benachrichtigungen");
+  put("filament", "Filament & Preise");
+  put("general", "Allgemein", "Raumklima", "Datensicherung");
+  for (const s of root.children) panes.general.append(s);  // anything not sorted yet stays visible
+  panes.about.append(aboutSection());
+
+  outer.append(el("div", { class: "savebar" },
     el("button", { class: "btn primary", onclick: () => saveSettings(true) }, t("Speichern")),
     el("span", { class: "note" }, t("Beim Speichern werden alle Verbindungen neu aufgebaut."))));
+  showSettingsTab(settingsTab);
+}
+
+function showSettingsTab(tab) {
+  settingsTab = tab;
+  try { localStorage.setItem("pd-settings-tab", tab); } catch { /* private mode */ }
+  for (const b of document.querySelectorAll(".settings-tabs button")) b.classList.toggle("active", b.dataset.sub === tab);
+  for (const p of document.querySelectorAll(".settings-pane")) p.hidden = p.dataset.pane !== tab;
+  const bar = $("#settings .savebar");
+  if (bar) bar.hidden = tab === "about";
+}
+
+/* about: version and links (GitHub, Discord, report a problem) */
+const REPO_URL = "https://github.com/Freaky-Jay-22/3d-printdash";
+const DISCORD_URL = "https://discord.gg/nP3KDZavXr";
+function aboutSection() {
+  const link = (href, label, desc) => el("a", { class: "about-link", href, target: "_blank", rel: "noopener" },
+    el("b", {}, label), el("span", { class: "note" }, desc));
+  const v = lastState?.version;
+  return el("div", { class: "settings-section" },
+    el("h3", {}, "3D-PrintDash"),
+    v ? el("p", { class: "hint" }, t("Version {0}", v)) : null,
+    el("div", { class: "about-links" },
+      link(REPO_URL, "GitHub", t("Anleitung, Neuigkeiten und Quellcode")),
+      link(DISCORD_URL, "Discord", t("Fragen stellen und mit anderen austauschen")),
+      link(`${REPO_URL}/issues`, t("Problem melden"), t("Fehler oder Wunsch auf GitHub melden")),
+      link(`${REPO_URL}/blob/main/printdash/CHANGELOG.md`, t("Änderungen"), t("Was in welcher Version neu ist"))),
+    lastState?.test_build ? testBannerSwitch() : null);
+}
+
+// test build only: switch for the orange bar (stored in this browser)
+function testBannerSwitch() {
+  const cb = el("input", { type: "checkbox" });
+  cb.checked = testBannerOff();
+  cb.addEventListener("change", () => setTestBannerOff(cb.checked));
+  return el("div", { class: "field wide test-switch" }, el("label", { class: "check" }, cb, t("Test-Balken ausblenden")),
+    el("small", {}, t("Nur in der Testversion und nur in diesem Browser, z. B. für Bilder und Videos.")));
 }
 
 /* backup, restore, import from another installation */
@@ -1203,8 +1604,8 @@ function backupSection() {
 
 function filamentSettings() {
   const f = draft.filament = draft.filament || { deduct_usage: false, low_warn_g: 100 };
-  return el("div", { class: "settings-section" },
-    el("h3", {}, t("Filament")),
+  return el("div", { class: "pgroup" },
+    el("h4", { class: "sub-head" }, t("Bestand")),
     el("div", { class: "fields" },
       field(t("Verbrauch nach jedem Druck vom Bestand abziehen"), f, "deduct_usage", { type: "checkbox",
         hint: t("Zieht die Gramm laut Slicer von den Spulen ab, die während des Drucks aktiv waren (bei Abbruch anteilig). Eine neue Spule wird dabei zu „angefangen“. Funktioniert nur für Spulen, die im Bestand erfasst und im Drucker erkannt sind.") }),
@@ -1234,18 +1635,23 @@ function priceSection() {
       name.addEventListener("input", () => { r.name = name.value; sync(); });
       price.addEventListener("input", () => { r.price = price.value; sync(); });
       list.append(el("div", { class: "price-row" }, name, price, el("span", { class: "note" }, `${c.currency || guessCurrency()}/kg`),
-        el("button", { class: "icon-btn", title: t("Entfernen"), "aria-label": t("Entfernen"),
-          onclick: () => { rows.splice(rows.indexOf(r), 1); sync(); render(); } }, "✕")));
+        el("button", { class: "icon-btn", type: "button", title: t("Entfernen"), "aria-label": t("Entfernen"),
+          onclick: () => { rows.splice(rows.indexOf(r), 1); sync(); render(); } }, sym("close"))));
     }
   };
   render();
-  return el("div", { class: "settings-section" },
-    el("h3", {}, t("Preise")),
+  // the list of material prices opens in its own window, so the page stays short with many materials
+  const count = el("span", { class: "note" });
+  const showCount = () => { count.textContent = ` · ${tn(Object.keys(c.materials).length, "{0} Material", "{0} Materialien")}`; };
+  showCount();
+  const dlg = el("dialog", { class: "price-dialog" }, el("form", { method: "dialog", class: "dialog-body" },
+    el("div", { class: "dialog-head" }, el("h3", {}, t("Materialpreise")),
+      el("button", { class: "icon-btn", value: "close", "aria-label": t("Schliessen") }, sym("close"))),
     el("p", { class: "hint" }, t("Preis pro kg je Material. Varianten wie „PLA Basic“ oder „PETG HF“ zählen zum Grundmaterial, „PETG CF“ zu PETG-CF. Alles andere nutzt den Standardpreis. Neue Materialien unter Filament → Marken erscheinen hier automatisch. Die Kosten werden beim Druckende gespeichert.")),
     list,
     el("div", { class: "row-btns" },
-      el("button", { class: "btn", onclick: () => { rows.push({ name: "", price: c.default_price_per_kg }); render(); $$("input", list).at(-2)?.focus(); } }, t("+ Material")),
-      el("button", { class: "btn", title: t("Ergänzt alle Materialien, die bei den Marken erfasst sind und hier noch fehlen"), onclick: async () => {
+      el("button", { class: "btn", type: "button", onclick: () => { rows.push({ name: "", price: c.default_price_per_kg }); render(); $$("input", list).at(-2)?.focus(); } }, t("+ Material")),
+      el("button", { class: "btn", type: "button", title: t("Ergänzt alle Materialien, die bei den Marken erfasst sind und hier noch fehlen"), onclick: async () => {
         try {
           const f = await api("api/filament");
           const norm = (s) => String(s || "").toUpperCase().replace(/[\s_/]+/g, "-");
@@ -1260,11 +1666,22 @@ function priceSection() {
           toast(t("{0} hinzugefügt – bitte unten speichern", fresh.map((x) => x.name).join(", ")), "ok");
         } catch (e) { toast(e.message, "bad"); }
       } }, t("Aus Marken übernehmen"))),
-    el("div", { class: "fields", style: "margin-top:12px" },
+    el("p", { class: "note" }, t("Übernommen wird mit «Speichern» unten auf der Seite.")),
+    el("div", { class: "dialog-actions" }, el("button", { class: "btn primary", value: "close" }, t("Fertig")))));
+  dlg.addEventListener("close", () => { showCount(); dlg.remove(); });
+  return el("div", { class: "settings-section" },
+    el("h3", {}, t("Filament & Preise")),
+    filamentSettings(),
+    el("div", { class: "pgroup" },
+      el("h4", { class: "sub-head" }, t("Preise")),
+      el("div", { class: "row-btns" },
+        el("button", { class: "btn", type: "button", onclick: () => { document.body.append(dlg); render(); dlg.showModal(); } },
+          t("Materialpreise bearbeiten")), count),
+      el("div", { class: "fields", style: "margin-top:12px" },
       field(t("Standardpreis pro kg (andere Materialien)"), c, "default_price_per_kg", { type: "number" }),
       field(t("Strompreis pro kWh"), c, "electricity_price_per_kwh", { type: "number", placeholder: "0",
-        hint: t("Für die Stromkosten pro Druck (Energiezähler der Steckdose, Einstellungen → Drucker). 0 = aus.") }),
-      currencyField(c, render)));
+        hint: t("Für die Stromkosten pro Druck (Energiezähler der Steckdose, Tab «Drucker» → Weitere Optionen). 0 = aus.") }),
+      currencyField(c, render))));
 }
 
 // currency: automatic, a common one from the list, or any other text
@@ -1347,7 +1764,8 @@ function designFields() {
   const ui = draft.ui;
   ui.theme = ui.theme || "";
   ui.accent = ui.accent || "";
-  const preview = () => { themePreview = true; applyTheme({ mode: ui.theme, accent: ui.accent }); };
+  ui.tone = ui.tone || "";
+  const preview = () => { themePreview = true; applyTheme({ mode: ui.theme, accent: ui.accent, tone: ui.tone }); };
   const known = ACCENTS.some(([v]) => v === ui.accent);
   const sel = el("select", {}, ...ACCENTS.map(([v, l]) => el("option", { value: v }, t(l))),
     el("option", { value: "custom" }, t("Eigene Farbe …")));
@@ -1365,6 +1783,8 @@ function designFields() {
   return el("div", { class: "fields", style: "margin-top:12px" },
     el("div", { class: "field wide" }, el("h4", { class: "sub-head" }, t("Design"))),
     field(t("Hell oder dunkel"), ui, "theme", { options: [["", t("Automatisch (wie das Gerät)")], ["light", t("Hell")], ["dark", t("Dunkel")]],
+      onchange: preview }),
+    field(t("Farbton im dunklen Design"), ui, "tone", { options: [["", t("Klassisch (dunkelblau)")], ["neutral", t("Neutral (grau/schwarz)")]],
       onchange: preview }),
     el("label", { class: "field" }, t("Akzentfarbe"), el("div", { class: "accent-row" }, sel, picker, swatch),
       el("small", {}, t("Für Knöpfe, Fortschrittsbalken und Markierungen. Vorschau sofort, gilt nach dem Speichern."))));
@@ -1384,7 +1804,7 @@ function timelapseSection() {
         const r = await api(`api/timelapse/storage?storage=${encodeURIComponent(tl.storage)}&folder=${encodeURIComponent(tl.folder || "")}`);
         const parts = [];
         if (r.writable) {
-          parts.push(t("✓ Videos werden gespeichert in {0}", r.path));
+          parts.push([sym("check", { state: "ok" }), " ", t("Videos werden gespeichert in {0}", r.path)]);
           if (r.free != null) parts.push(t("{0} frei", fmtBytes(r.free)));
           if (r.videos) {
             const mb = r.videos_bytes / 1024 ** 2;
@@ -1392,8 +1812,8 @@ function timelapseSection() {
           }
           info.className = "tl-info note ok";
         } else {
-          parts.push(r.root_exists ? t("✗ In {0} kann nicht geschrieben werden.", r.path)
-            : t("✗ Diesen Ordner gibt es hier nicht. Videos werden dann intern gespeichert."));
+          parts.push([sym("close", { state: "bad" }), " ", r.root_exists ? t("In {0} kann nicht geschrieben werden.", r.path)
+            : t("Diesen Ordner gibt es hier nicht. Videos werden dann intern gespeichert.")]);
           info.className = "tl-info note bad";
         }
         info.textContent = parts.join(" · ");
@@ -1410,7 +1830,7 @@ function timelapseSection() {
   check();
   // list of all videos: play, download, delete
   const list = el("div", { class: "tl-videos", hidden: true });
-  const listBtn = el("button", { class: "btn", type: "button" }, t("🎞 Videos verwalten"));
+  const listBtn = el("button", { class: "btn", type: "button" }, sym("film"), " ", t("Videos verwalten"));
   const loadList = async () => {
     let vids = [];
     try { vids = await api("api/timelapse/videos"); } catch (e) { toast(e.message, "bad"); return; }
@@ -1427,15 +1847,15 @@ function timelapseSection() {
           el("button", { class: "icon-btn", title: t("Zeitraffer ansehen"), "aria-label": t("Zeitraffer ansehen"),
             onclick: () => openVideoOverlay(src, v.filename || "", v.id, () => { loadList(); check(); }) }, "▶"),
           el("a", { class: "icon-btn", href: `${src}?download=1`, download: "", title: t("Zeitraffer herunterladen"),
-            "aria-label": t("Zeitraffer herunterladen") }, "⬇"),
-          el("button", { class: "icon-btn", title: t("🗑 Zeitraffer löschen"), "aria-label": t("🗑 Zeitraffer löschen"),
-            onclick: async () => { if (await deleteTimelapse(v.id)) { loadList(); check(); } } }, "🗑"));
+            "aria-label": t("Zeitraffer herunterladen") }, sym("download")),
+          el("button", { class: "icon-btn", title: t("Zeitraffer löschen"), "aria-label": t("Zeitraffer löschen"),
+            onclick: async () => { if (await deleteTimelapse(v.id)) { loadList(); check(); } } }, sym("trash")));
       }));
   };
   listBtn.addEventListener("click", () => { list.hidden = !list.hidden; if (!list.hidden) loadList(); });
   return el("div", { class: "settings-section" },
     el("h3", {}, t("Zeitraffer")),
-    el("p", { class: "hint" }, t("Einschalten pro Drucker oben bei den Druckern oder für einzelne Drucke auf der Druckerkarte. Hier legst du fest, wo die Videos gespeichert werden. Für eine NAS: in Home Assistant unter Einstellungen → System → Speicher → „Netzwerkspeicher hinzufügen“ die Freigabe mit der Verwendung „Medien“ einbinden und hier „Medien-Ordner“ wählen. Eine USB-Festplatte schliesst du dafür am Router oder an der NAS an und bindest sie gleich ein (Home Assistant kann USB-Speicher nicht direkt als Medien-Ordner verwenden).")),
+    el("p", { class: "hint" }, t("Einschalten pro Drucker im Tab «Drucker» (Weitere Optionen) oder für einzelne Drucke auf der Druckerkarte. Hier legst du fest, wo die Videos gespeichert werden. Für eine NAS: in Home Assistant unter Einstellungen → System → Speicher → „Netzwerkspeicher hinzufügen“ die Freigabe mit der Verwendung „Medien“ einbinden und hier „Medien-Ordner“ wählen. Eine USB-Festplatte schliesst du dafür am Router oder an der NAS an und bindest sie gleich ein (Home Assistant kann USB-Speicher nicht direkt als Medien-Ordner verwenden).")),
     el("div", { class: "fields" },
       field(t("Speicherort"), tl, "storage", { options: [
         ["data", t("Intern")],
@@ -1517,51 +1937,48 @@ function orientText(o) {
   return parts.join(", ");
 }
 
-function orientSection() {
-  const sec = el("div", { class: "settings-section" },
-    el("h3", {}, t("Kamerabild drehen und spiegeln")),
-    el("p", { class: "hint" }, t("Für Kameras, die gedreht oder kopfüber montiert sind. Gilt auch für Benachrichtigungsbilder und Zeitraffer. „Automatisch“ übernimmt die Einstellung des Druckers (bei Klipper die Webcam-Einstellung aus Fluidd/Mainsail).")));
-  const cams = lastState?.cameras || [];
-  if (!cams.length) {
-    sec.append(el("p", { class: "note" }, t("Noch keine Kameras vorhanden.")));
-    return sec;
-  }
+// orientation of one camera (by its id in the live state); shown at the printer or at the external camera
+function orientFields(camId, label) {
+  const cam = (lastState?.cameras || []).find((c) => c.id === camId);
+  if (!cam) return null;
   if (!draft.camera_orient || typeof draft.camera_orient !== "object") draft.camera_orient = {};
-  for (const cam of cams) {
-    const box = el("div", { class: "item" });
-    const render = () => {
-      const o = draft.camera_orient[cam.id];
-      const state = { mode: o?.mode === "manual" ? "manual" : "auto" };
-      const fields = el("div", { class: "fields" },
-        field(t("Ausrichtung"), state, "mode", {
-          options: [["auto", t("Automatisch ({0})", orientText(cam.auto_orient))], ["manual", t("Eigene Einstellung")]],
-          onchange: () => {
-            if (state.mode === "manual") {
-              draft.camera_orient[cam.id] = { mode: "manual", rotate: cam.auto_orient?.rotate || 0,
-                flip_h: !!cam.auto_orient?.flip_h, flip_v: !!cam.auto_orient?.flip_v };
-            } else {
-              delete draft.camera_orient[cam.id];
-            }
-            render();
-          } }));
-      if (state.mode === "manual") {
-        fields.append(
-          field(t("Drehen"), o, "rotate", { options: [["0", "0°"], ["90", t("90° im Uhrzeigersinn")],
-            ["180", "180°"], ["270", t("270° im Uhrzeigersinn")]] }),
-          field(t("Horizontal spiegeln"), o, "flip_h", { type: "checkbox" }),
-          field(t("Vertikal spiegeln"), o, "flip_v", { type: "checkbox" }));
-      }
-      box.replaceChildren(el("div", { class: "item-head" }, el("span", {}, cam.name || cam.id)), fields);
-    };
-    render();
-    sec.append(box);
-  }
-  sec.append(el("p", { class: "note" }, t("Neue externe Kameras erscheinen hier nach dem Speichern.")));
-  return sec;
+  const box = el("div", { class: "field wide orient" });
+  const render = () => {
+    const o = draft.camera_orient[cam.id];
+    const state = { mode: o?.mode === "manual" ? "manual" : "auto" };
+    const fields = el("div", { class: "fields" },
+      field(label || t("Bild drehen und spiegeln"), state, "mode", {
+        options: [["auto", t("Automatisch ({0})", orientText(cam.auto_orient))], ["manual", t("Eigene Einstellung")]],
+        onchange: () => {
+          if (state.mode === "manual") {
+            draft.camera_orient[cam.id] = { mode: "manual", rotate: cam.auto_orient?.rotate || 0,
+              flip_h: !!cam.auto_orient?.flip_h, flip_v: !!cam.auto_orient?.flip_v };
+          } else {
+            delete draft.camera_orient[cam.id];
+          }
+          render();
+        } }));
+    if (state.mode === "manual") {
+      fields.append(
+        field(t("Drehen"), o, "rotate", { options: [["0", "0°"], ["90", t("90° im Uhrzeigersinn")],
+          ["180", "180°"], ["270", t("270° im Uhrzeigersinn")]] }),
+        field(t("Horizontal spiegeln"), o, "flip_h", { type: "checkbox" }),
+        field(t("Vertikal spiegeln"), o, "flip_v", { type: "checkbox" }));
+    }
+    box.replaceChildren(fields);
+  };
+  render();
+  return box;
+}
+// the printer's own cameras (not the external ones assigned to it)
+function printerOrient(p) {
+  const ext = new Set((draft.cameras || []).map((c) => c.id).filter(Boolean));
+  const cams = (lastState?.cameras || []).filter((c) => p.id && c.printer_id === p.id && !ext.has(c.id));
+  return cams.map((c) => orientFields(c.id, cams.length > 1 ? t("Bild drehen und spiegeln: {0}", c.name) : null));
 }
 
-function cameraSourceFields(p) {
-  const wrap = el("div", { class: "ams-box" });
+function cameraSourceFields(p, embedded = false) {
+  const wrap = el("div", { class: embedded ? "pgroup pgroup-cont" : "ams-box" });
   p.camera_source = p.camera_source === "compat" ? "compat" : "direct";
   const render = () => {
     const fields = el("div", { class: "fields" },
@@ -1573,7 +1990,7 @@ function cameraSourceFields(p) {
     const note = p.camera_source === "compat"
       ? t("Für Kameras, die langsam starten oder verzögert sind (z. B. P2S): schnellerer Start, Verbindung bleibt 60 s offen, geringe Verzögerung, weniger Rechenlast (max. 960 px, 5 Bilder/s).")
       : t("Bei Problemen (Kamera startet langsam, Bild hängt nach) den Kompatibilitätsmodus probieren.");
-    wrap.replaceChildren(el("h4", { class: "sub-head" }, t("Kamera")), fields, el("p", { class: "note" }, note));
+    wrap.replaceChildren(embedded ? "" : el("h4", { class: "sub-head" }, t("Kamera")), fields, el("p", { class: "note" }, note));
   };
   render();
   return wrap;
@@ -1624,6 +2041,7 @@ function amsSensorFields(p) {
   return wrap;
 }
 
+const openMore = new WeakSet();  // printers whose "more options" are unfolded (kept while the settings are redrawn)
 const PRINTER_TYPE_NAMES = { bambu: "Bambu Lab (LAN)", moonraker: "Klipper / Moonraker", creality: "Creality (experimentell)" };
 
 function printerItem(p) {
@@ -1634,15 +2052,23 @@ function printerItem(p) {
   } }, t("Entfernen"));
   const head = el("div", { class: "item-head" },
     el("span", {}, p.name || t("Drucker"), el("span", { class: "tag" }, t(PRINTER_TYPE_NAMES[p.type] || PRINTER_TYPE_NAMES.moonraker))), remove);
-  const fields = el("div", { class: "fields" });
-  const item = el("div", { class: "item" }, head, fields);
+  const item = el("div", { class: "item" }, head);
+  // a titled block of fields inside the printer; "more" = the less important options, folded but easy to find
+  const group = (title, kids, hint) => el("div", { class: "pgroup" },
+    title ? el("h4", { class: "sub-head" }, title) : null,
+    hint ? el("p", { class: "note" }, hint) : null,
+    el("div", { class: "fields" }, ...kids.filter(Boolean)));
+  const more = (summary, ...parts) => {
+    const d = el("details", { class: "pmore", open: openMore.has(p) || undefined },
+      el("summary", {}, t("Weitere Optionen"), el("span", { class: "note" }, ` · ${summary}`)), ...parts);
+    d.addEventListener("toggle", () => { if (d.open) openMore.add(p); else openMore.delete(p); });
+    return d;
+  };
   // maintenance intervals (print hours / days, 0 = off)
   for (const [k, v] of [["maint_clean_h", 100], ["maint_clean_d", 0], ["maint_lube_h", 300], ["maint_lube_d", 0]]) {
     if (p[k] === undefined || p[k] === null || p[k] === "") p[k] = v;
   }
   const maintFields = () => [
-    el("div", { class: "field wide" }, el("h4", { class: "sub-head" }, t("Wartung")),
-      el("small", {}, t("Erinnerung nach Druckstunden und/oder Tagen seit dem letzten „Erledigt“. 0 = aus."))),
     field(t("Reinigen alle (Druckstunden)"), p, "maint_clean_h", { type: "number" }),
     field(t("Reinigen alle (Tage)"), p, "maint_clean_d", { type: "number" }),
     field(t("Schmieren alle (Druckstunden)"), p, "maint_lube_h", { type: "number" }),
@@ -1658,13 +2084,35 @@ function printerItem(p) {
       field(t("Kamera für den Zeitraffer"), p, "timelapse_camera", { options: opts }),
     ];
   };
-  const haCameraField = () => {
-    const cams = haEntities.cameras || [];
-    if (!haEntities.available) return null;
-    const opts = [["", t("– keine (direkt vom Drucker) –")], ...cams.map((e) => [e.entity_id, `${e.name} (${e.entity_id})`])];
-    if (p.camera_entity && !cams.some((e) => e.entity_id === p.camera_entity)) opts.push([p.camera_entity, p.camera_entity]);
-    return field(t("Kamera aus Home Assistant"), p, "camera_entity", { options: opts,
-      hint: t("Für Drucker, deren Kamera nur eine Verbindung erlaubt: Nutzt eine Integration die Kamera schon, wird das Bild über Home Assistant geholt.") });
+  /* one choice for where the camera image comes from (keeps the old keys camera / camera_entity / camera_url) */
+  const cameraChoice = (autoLabel) => {
+    const box = el("div", { class: "field wide cam-choice" });
+    const cur = p.camera === false ? "none" : (p.camera_entity ? "ha" : (p.camera_url ? "url" : "auto"));
+    const state = { src: cur };
+    const draw = () => {
+      const opts = [["auto", autoLabel], ["url", t("Eigene Adresse (Stream oder Bild)")], ["none", t("Keine Kamera")]];
+      if (haEntities.available || state.src === "ha") opts.splice(1, 0, ["ha", t("Kamera aus Home Assistant")]);
+      const row = el("div", { class: "fields" }, field(t("Kamera-Quelle"), state, "src", { options: opts, onchange: () => {
+        p.camera = state.src !== "none";
+        if (state.src !== "ha") p.camera_entity = "";
+        if (state.src !== "url") p.camera_url = "";
+        draw();
+      } }));
+      let hint = t("Die Kamera wird automatisch vom Drucker geholt.");
+      if (state.src === "ha") {
+        const cams = haEntities.cameras || [];
+        const o = [["", t("– bitte wählen –")], ...cams.map((e) => [e.entity_id, `${e.name} (${e.entity_id})`])];
+        if (p.camera_entity && !cams.some((e) => e.entity_id === p.camera_entity)) o.push([p.camera_entity, p.camera_entity]);
+        row.append(field(t("Kamera-Entität"), p, "camera_entity", { options: o }));
+        hint = t("Nützlich, wenn eine Integration die Kamera schon nutzt und der Drucker nur eine Verbindung erlaubt.");
+      } else if (state.src === "url") {
+        row.append(field(t("Adresse"), p, "camera_url", { placeholder: "rtsp://… / http://…", wide: true }));
+        hint = t("Zum Beispiel ein Restream von go2rtc (RTSP), ein MJPEG-Stream oder ein Einzelbild (.jpg).");
+      } else if (state.src === "none") hint = t("Für diesen Drucker wird keine Kamera angezeigt.");
+      box.replaceChildren(row, el("small", {}, hint));
+    };
+    draw();
+    return box;
   };
   const powerFields = () => {
     const opts = [["", t("– keine –")], ...haEntities.entities.map((e) => [e.entity_id, `${e.name} (${e.entity_id})`])];
@@ -1679,40 +2127,46 @@ function printerItem(p) {
             ...(haEntities.energy || []).map((e) => [e.entity_id, `${e.name} (${e.entity_id})`]),
             ...(p.energy_entity && p.energy_entity !== "none" && !(haEntities.energy || []).some((e) => e.entity_id === p.energy_entity)
               ? [[p.energy_entity, p.energy_entity]] : [])],
-            hint: t("Misst den Strom pro Druck. Den Strompreis stellst du unter Preise ein.") })
+            hint: t("Misst den Strom pro Druck. Den Strompreis stellst du unter «Filament & Preise» ein.") })
         : null,
       field(t("Nach Druckende ausschalten (Min.)"), p, "auto_off_minutes", { type: "number", placeholder: t("0 = nie"), hint: t("Erst wenn Düse und Bett unter 50 °C sind") }),
     ].filter(Boolean);
   };
+  const maintGroup = () => group(t("Wartung"), maintFields(), t("Erinnerung nach Druckstunden und/oder Tagen seit dem letzten „Erledigt“. 0 = aus."));
+  const powerGroup = () => group(t("Steckdose und Strom"), powerFields());
+  const timelapseGroup = () => group(t("Zeitraffer"), timelapseFields());
   if (p.type === "bambu") {
-    fields.append(
-      field(t("Name"), p, "name"),
-      field(t("IP-Adresse"), p, "host", { placeholder: "192.168.1.40" }),
-      field(t("Seriennummer"), p, "serial", { placeholder: "00M00A000000000", hint: t("Am Drucker: Einstellungen → Gerät") }),
-      field(t("LAN-Zugangscode"), p, "access_code", { type: "password", hint: t("Am Drucker: Einstellungen → Netzwerk (WLAN)") }),
-      field(t("Eingebaute Kamera verwenden"), p, "camera", { type: "checkbox", hint: "" }),
-      field(t("AMS vorhanden"), p, "has_ams", { type: "checkbox",
-        hint: t("Legt im Filament-Tab einen Lagerort für das AMS dieses Druckers an. Spulen, die beim Ausschalten des Druckers im AMS stecken, werden dorthin verschoben, die Spule am externen Halter in den eigenen Lagerort «Drucker (extern)». Nimmst du eine Spule bei laufendem Drucker heraus, kommt sie an ihren alten Ort zurück.") }),
-      field(t("Filamentverbrauch ermitteln über"), p, "usage_source", { wide: true, options: [
-        ["auto", t("Automatisch (Druckdatei, sonst Home Assistant, sonst AMS-Füllstand)")],
-        ["file", t("Druckdatei auf der SD-Karte (am genauesten)")],
-        ["ha", t("Home Assistant (Bambu-Lab-Integration, auch für Cloud-Drucke)")],
-        ["ams", t("AMS-Füllstand (nur Bambu-Spulen, ungenau)")]],
-        hint: t("Die Druckdatei liest 3D-PrintDash nur, wenn eine SD-Karte im Drucker steckt. Home Assistant braucht die Bambu-Lab-Integration im Cloud-Modus (Sensor „Gewicht des Drucks“). Der AMS-Füllstand rechnet die Abnahme in Prozent in Gramm um (1 % ≈ 10 g bei 1-kg-Spulen).") }),
-      ...powerFields(), ...timelapseFields(), ...maintFields());
-    item.append(cameraSourceFields(p));
-    item.append(amsSensorFields(p));
-    item.append(bambuControlFields(p));
-    item.append(el("p", { class: "note" }, t("Für die Kamera muss am Drucker „LAN Only Liveview“ (Einstellungen → Netzwerk) eingeschaltet sein.")));
+    item.append(
+      group(t("Verbindung"), [
+        field(t("Name"), p, "name"),
+        field(t("IP-Adresse"), p, "host", { placeholder: "192.168.1.40" }),
+        field(t("Seriennummer"), p, "serial", { placeholder: "00M00A000000000", hint: t("Am Drucker: Einstellungen → Gerät") }),
+        field(t("LAN-Zugangscode"), p, "access_code", { type: "password", hint: t("Am Drucker: Einstellungen → Netzwerk (WLAN)") })]),
+      group(t("Kamera"), [
+        field(t("Eingebaute Kamera verwenden"), p, "camera", { type: "checkbox", hint: "" }),
+        ...printerOrient(p)], t("Für die Kamera muss am Drucker „LAN Only Liveview“ (Einstellungen → Netzwerk) eingeschaltet sein.")),
+      cameraSourceFields(p, true),
+      group(t("Filament"), [
+        field(t("AMS vorhanden"), p, "has_ams", { type: "checkbox",
+          hint: t("Legt im Filament-Tab einen Lagerort für das AMS dieses Druckers an. Spulen, die beim Ausschalten des Druckers im AMS stecken, werden dorthin verschoben, die Spule am externen Halter in den eigenen Lagerort «Drucker (extern)». Nimmst du eine Spule bei laufendem Drucker heraus, kommt sie an ihren alten Ort zurück.") }),
+        field(t("Filamentverbrauch ermitteln über"), p, "usage_source", { wide: true, options: [
+          ["auto", t("Automatisch (Druckdatei, sonst Home Assistant, sonst AMS-Füllstand)")],
+          ["file", t("Druckdatei auf der SD-Karte (am genauesten)")],
+          ["ha", t("Home Assistant (Bambu-Lab-Integration, auch für Cloud-Drucke)")],
+          ["ams", t("AMS-Füllstand (nur Bambu-Spulen, ungenau)")]],
+          hint: t("Die Druckdatei liest 3D-PrintDash nur, wenn eine SD-Karte im Drucker steckt. Home Assistant braucht die Bambu-Lab-Integration im Cloud-Modus (Sensor „Gewicht des Drucks“). Der AMS-Füllstand rechnet die Abnahme in Prozent in Gramm um (1 % ≈ 10 g bei 1-kg-Spulen).") })]),
+      p.has_ams ? amsSensorFields(p) : "",
+      more(t("Steuerung, Steckdose, Zeitraffer, Wartung"),
+        el("div", { class: "pgroup" }, el("h4", { class: "sub-head" }, t("Steuerung und Home Assistant")), bambuControlFields(p)),
+        powerGroup(), timelapseGroup(), maintGroup()));
   } else if (p.type === "creality") {
-    fields.append(
-      field(t("Name"), p, "name"),
-      field(t("IP-Adresse"), p, "host", { placeholder: "192.168.1.42" }),
-      field(t("Eingebaute Kamera verwenden"), p, "camera", { type: "checkbox", hint: "" }),
-      ...[haCameraField()].filter(Boolean),
-      field(t("Kamera-URL (optional)"), p, "camera_url", { placeholder: t("leer = automatisch"), wide: true }),
-      ...powerFields(), ...timelapseFields(), ...maintFields());
-    item.append(el("p", { class: "note" }, t("Experimentell: für Creality-Drucker mit der normalen Firmware (K1-Serie, ohne Root). Mit Root und Moonraker besser „Klipper / Moonraker“ wählen. Dateien senden geht noch nicht.")));
+    item.append(
+      group(t("Verbindung"), [
+        field(t("Name"), p, "name"),
+        field(t("IP-Adresse"), p, "host", { placeholder: "192.168.1.42" })],
+        t("Experimentell: für Creality-Drucker mit der normalen Firmware (K1-Serie, ohne Root). Mit Root und Moonraker besser „Klipper / Moonraker“ wählen. Dateien senden geht noch nicht.")),
+      group(t("Kamera"), [cameraChoice(t("Automatisch (eingebaute Kamera)")), ...printerOrient(p)]),
+      more(t("Steckdose, Zeitraffer, Wartung"), powerGroup(), timelapseGroup(), maintGroup()));
   } else {
     const result = el("span", { class: "probe-result" });
     const camInfo = el("div", { class: "probe-result", hidden: true, style: "margin-top:6px;word-break:break-all" });
@@ -1722,23 +2176,22 @@ function printerItem(p) {
     const chamberOpts = [["", t("Automatisch")], ["none", t("Keiner")]];
     if (p.chamber_sensor && p.chamber_sensor !== "none") chamberOpts.push([p.chamber_sensor, p.chamber_sensor]);
     const chamberField = field(t("Kammer-Temperatur"), p, "chamber_sensor", { options: chamberOpts });
-    fields.append(
+    const live = (lastState?.printers || []).find((x) => x.id === p.id);
+    const hasBox = (p.filament_system || "auto") !== "none" && (p.filament_system === "qidi_box" || live?.filament_system?.key === "qidi_box");
+    const conn = group(t("Verbindung"), [
       field(t("Name"), p, "name"),
       field(t("Moonraker-URL"), p, "url", { placeholder: "http://192.168.1.41:7125" }),
-      field("API-Key", p, "api_key", { type: "password", placeholder: t("meist leer") }),
-      lightField,
-      chamberField,
-      field(t("Licht an: eigener G-Code"), p, "light_on_gcode", { placeholder: t("optional, z. B. LIGHT_ON") }),
-      field(t("Licht aus: eigener G-Code"), p, "light_off_gcode", { placeholder: t("optional") }),
-      ...powerFields(),
-      field(t("Kamera-URL (optional)"), p, "camera_url", { placeholder: t("leer = automatisch von Moonraker"), wide: true }),
-      filamentSystemField(p),
-      ...timelapseFields(), ...maintFields());
-    const live = (lastState?.printers || []).find((x) => x.id === p.id);
-    if ((p.filament_system || "auto") !== "none" && (p.filament_system === "qidi_box" || live?.filament_system?.key === "qidi_box")) {
-      item.append(amsSensorFields(p));
-    }
-    item.append(el("div", { class: "row-btns" },
+      field("API-Key", p, "api_key", { type: "password", placeholder: t("meist leer") })]);
+    item.append(conn,
+      group(t("Kamera"), [cameraChoice(t("Automatisch (von Moonraker)")), ...printerOrient(p)]),
+      group(t("Filament"), [filamentSystemField(p)]),
+      hasBox ? amsSensorFields(p) : "",
+      more(t("Licht, Kammer, Steckdose, Zeitraffer, Wartung"),
+        group(t("Licht und Kammer"), [lightField, chamberField,
+          field(t("Licht an: eigener G-Code"), p, "light_on_gcode", { placeholder: t("optional, z. B. LIGHT_ON") }),
+          field(t("Licht aus: eigener G-Code"), p, "light_off_gcode", { placeholder: t("optional") })]),
+        powerGroup(), timelapseGroup(), maintGroup()));
+    conn.append(el("div", { class: "row-btns" },
       el("button", { class: "btn", onclick: async () => {
         result.className = "probe-result"; result.textContent = t("Teste …");
         const r = await api("api/probe/moonraker", { method: "POST", json: { id: p.id, url: p.url, api_key: p.api_key } }).catch((e) => ({ ok: false, error: e.message }));
@@ -1794,8 +2247,8 @@ let detail = null;
 // layout of the printer details (per browser): "classic" = like version 0.3.7, "stack" = cameras on top
 // of each other, "pip" = one big camera + the others small in the corner, "side" = cameras side by side.
 // The default layout is used whenever the details are opened; the buttons switch only for now.
-const DETAIL_LAYOUTS = [["classic", "▤", "Klassisch (wie bisher)"], ["stack", "☰", "Kameras übereinander"],
-  ["pip", "▣", "Grosse Kamera + Bild im Bild"], ["side", "◫", "Kameras nebeneinander"]];
+const DETAIL_LAYOUTS = [["classic", "layoutClassic", "Klassisch (wie bisher)"], ["stack", "layoutStack", "Kameras übereinander"],
+  ["pip", "layoutPip", "Grosse Kamera + Bild im Bild"], ["side", "layoutSide", "Kameras nebeneinander"]];
 const knownLayout = (v) => DETAIL_LAYOUTS.some(([k]) => k === v);
 let detailDefault = (() => {
   try { const v = localStorage.getItem("pf-detail-layout"); return knownLayout(v) ? v : "classic"; }
@@ -1826,6 +2279,7 @@ function saveDefaultLayout() {
   toast(t("Als Standard gespeichert"), "ok");
 }
 
+const detailOpen = new Set();  // folded sections of the printer details that are open
 function openDetail(pid) {
   const p = lastState?.printers.find((x) => x.id === pid);
   if (!p) return;
@@ -1847,36 +2301,49 @@ function openDetail(pid) {
     actions: el("div", { class: "actions" }),
     cams: el("div", { class: "detail-cams" }),
     jobs: el("div", { class: "detail-jobs" }),
+    stats: el("div", { class: "stat-tiles" }),
+    tiles: el("div", { class: "stat-tiles" }),
+    slots: el("div", { class: "slots" }),
     runningJob: null,
   };
   d.progress = el("div", { class: "progress" }, d.bar);
   const fsBtn = el("button", { class: "btn", onclick: () => {
     if (document.fullscreenElement) document.exitFullscreen();
     else root.requestFullscreen?.().catch(() => {});
-  } }, t("⛶ Vollbild"));
+  } }, sym("fullscreen"), " ", t("Vollbild"));
   const section = (title, ...kids) => el("section", { class: "detail-sec" }, title ? el("h4", {}, title) : null, ...kids);
+  // folded section: title + short summary, details on click (state kept per browser session)
+  const foldSec = (title, summary, ...kids) => {
+    const det = el("details", { class: "detail-sec fold", open: detailOpen.has(title) || undefined },
+      el("summary", {}, el("h4", {}, title), summary), ...kids);
+    det.addEventListener("toggle", () => { if (det.open) detailOpen.add(title); else detailOpen.delete(title); });
+    return det;
+  };
   detailLayout = detailDefault;   // always open with the default layout
   d.layoutBtns = DETAIL_LAYOUTS.map(([key, icon, label]) => el("button", {
     class: `seg-btn${key === detailLayout ? " active" : ""}${key === detailDefault ? " is-default" : ""}`,
-    "data-layout": key, title: t(label), "aria-label": t(label), onclick: () => setDetailLayout(key) }, icon));
+    "data-layout": key, title: t(label), "aria-label": t(label), onclick: () => setDetailLayout(key) }, sym(icon)));
   d.stdBtn = el("button", { class: "seg-btn std", disabled: true, title: t("Aktuelle Ansicht immer verwenden (Punkt = Standard)"),
     onclick: saveDefaultLayout }, t("Standard"));
   d.body = el("div", { class: `detail-body layout-${detailLayout}` });
   d.node.append(
     el("header", { class: "detail-head" },
-      el("button", { class: "btn", onclick: closeDetail }, t("← Übersicht")),
+      el("button", { class: "btn", onclick: closeDetail }, sym("back"), " ", t("Übersicht")),
       d.title, d.badge, el("span", { class: "spacer" }),
       el("div", { class: "seg", role: "group", "aria-label": t("Ansicht") }, d.layoutBtns, d.stdBtn), fsBtn,
-      el("button", { class: "icon-btn", "aria-label": t("Schliessen"), onclick: closeDetail }, "✕")),
+      el("button", { class: "icon-btn", "aria-label": t("Schliessen"), onclick: closeDetail }, sym("close"))),
     fill(d.body,
       d.cams,
+      // simpler side panel: big values as tiles, filament as spools, the rest folded («more»)
       el("aside", { class: "detail-side" },
-        section(null, el("div", { class: "file-row" }, d.thumb, d.file), d.progress, d.time, d.info, d.alerts),
-        el("section", { class: "detail-sec" }, d.tempsHead = el("h4", {}, t("Temperaturen")), d.temps),
-        d.filsSec = section(t("Filament"), d.fils),
+        section(null, el("div", { class: "file-row" }, d.thumb, d.file),
+          el("div", { class: "progress-row" }, d.progress, d.pct = el("span", { class: "pct" })), d.stats, d.alerts),
+        el("section", { class: "detail-sec" }, d.tempsHead = el("h4", {}, t("Temperaturen")), d.tiles),
+        d.filsSec = section(t("Filament"), d.slots),
         section(t("Steuerung"), d.actions),
-        d.maintSec = section(t("Wartung"), d.maint = el("div", { class: "maint-list" })),
-        section(t("Letzte Drucke"), d.jobs))),
+        d.maintSec = foldSec(t("Wartung"), d.maintSum = el("span", { class: "note" }), d.maint = el("div", { class: "maint-list" })),
+        foldSec(t("Letzte Drucke"), d.jobsSum = el("span", { class: "note" }), d.jobs),
+        foldSec(t("Gerät"), d.infoSum = el("span", { class: "note" }), d.info))),
   );
   root.append(d.node);
   root.hidden = false;
@@ -1909,14 +2376,33 @@ function renderDetail() {
   d.title.textContent = p.name;
   updateCard(d, p);
   d.filsSec.hidden = !p.filaments.length;
-  d.temps.hidden = false;
-  // "AMS" only for printers that report AMS values (Bambu)
-  d.tempsHead.textContent = (p.ams || []).length ? t("Temperaturen & AMS") : t("Temperaturen");
-  if (!d.temps.childElementCount) d.temps.replaceChildren(el("span", { class: "note" }, "–"));
+  buildSlots(d.slots, p);
+  // progress in % and the time values as tiles
+  const hasProg = p.progress !== null && p.progress !== undefined;
+  d.pct.textContent = hasProg ? `${Math.round(p.progress)} %` : "";
+  // tile: big value, small label, emoji top right
+  const tile = (value, label, icon = "", cls = "") => el("div", { class: `stat-tile ${cls}` },
+    icon ? el("span", { class: "tile-icon", "aria-hidden": "true" }, icon) : "", el("b", {}, value), el("small", {}, label));
+  const stats = [];
+  if (ACTIVE.includes(p.state)) {
+    if (p.remaining_s != null) stats.push(tile(fmtDuration(p.remaining_s), t("Restzeit")), tile(fmtEta(p.remaining_s), t("Fertig ca.")));
+    if (p.total_layers) stats.push(tile(`${p.layer ?? 0} / ${p.total_layers}`, t("Schicht")));
+    if (p.job?.weight_g) stats.push(tile(`${Math.round(p.job.weight_g)} g`, t("Filament (Druck)")));
+  }
+  d.stats.replaceChildren(...stats);
+  d.stats.hidden = !stats.length;
+  const tiles = p.temps.map((tp) => tile(tp.cur === null ? "–" : `${Math.round(tp.cur)}°`,
+    tp.target ? `${tempLabel(tp.label)} → ${Math.round(tp.target)}°` : tempLabel(tp.label), tempIcon(tp.label, tp.cur, tp.active), tp.active ? "on" : ""));
+  if (p.power?.watts != null && p.power.on !== false) tiles.push(tile(`${Math.round(p.power.watts)} W`, t("Leistung"), sym("bolt")));
+  d.tiles.replaceChildren(...(tiles.length ? tiles : [el("span", { class: "note" }, "–")]));
+  d.tempsHead.textContent = t("Temperaturen");
 
   // maintenance
   const tasks = p.maintenance || [];
   d.maintSec.hidden = !tasks.length;
+  const dueNames = tasks.filter((m) => m.due).map((m) => maintName(m.id));
+  d.maintSum.textContent = dueNames.length ? t("fällig: {0}", dueNames.join(", ")) : t("alles in Ordnung");
+  d.maintSum.className = dueNames.length ? "note warn" : "note";
   const mkey = JSON.stringify(tasks.map((m) => [m.id, m.progress, m.due]));
   if (d.maintKey !== mkey) {
     d.maintKey = mkey;
@@ -1956,6 +2442,7 @@ function renderDetail() {
   for (const v of p.versions || []) rows.push([t(v.label), v.value]);
   rows.push([t("Verbindung"), p.online ? "online" : "offline"]);
   d.info.replaceChildren(...rows.map(([k, v]) => el("div", {}, el("span", {}, k), el("b", {}, v))));
+  d.infoSum.textContent = [p.model, p.online ? "online" : "offline"].filter(Boolean).join(" · ");
 
   // cameras: layout chosen in the header (stacked / one big + picture in picture / side by side)
   const cams = p.cameras.includes(d.mainCam) ? [d.mainCam, ...p.cameras.filter((c) => c !== d.mainCam)] : p.cameras;
@@ -1995,6 +2482,7 @@ async function loadDetailJobs() {
   if (detail !== d) return;
   d.runningJob = jobs.find((j) => j.status === "running") || null;
   const done = jobs.filter((j) => j.status !== "running").slice(0, 5);
+  d.jobsSum.textContent = done.length ? `${fmtDate(done[0].started_at)} · ${STATE_LABEL[done[0].status] || done[0].status}` : t("Noch keine Drucke");
   d.jobs.replaceChildren(...(done.length ? done.map((j) => el("div", { class: "mini-job" },
     j.snapshot ? el("img", { src: `api/history/${j.id}/snapshot.jpg`, alt: "", loading: "lazy",
       onclick: () => openImageOverlay(`api/history/${j.id}/snapshot.jpg`, j.filename || "") }) : el("div", { class: "noimg" }),
@@ -2063,7 +2551,7 @@ function batteryChip(entity) {
   const v = filData.sensors?.[entity];
   const val = v?.state != null && !isNaN(Number(v.state)) ? Number(v.state) : null;
   return el("span", { class: `sensor${val !== null && val < 20 ? " warn" : ""}`, title: t("Batterie des Sensors") },
-    val === null ? "🔋 –" : `${val < 20 ? "🪫" : "🔋"} ${Math.round(val)} %`);
+    sym("battery", { level: val }), val === null ? " –" : ` ${Math.round(val)} %`);
 }
 
 // storage locations without big gaps: each panel spans as many 4 px rows as its height needs
@@ -2089,15 +2577,16 @@ function renderFilament() {
   const neu = all.filter((i) => i.condition === "neu").reduce((s, i) => s + (Number(i.count) || 0), 0);
   const grams = all.reduce((s, i) => s + itemGrams(i), 0);
   const value = all.reduce((s, i) => s + itemGrams(i) / 1000 * priceFor(i.material), 0);
-  const stat = (v, l) => el("div", { class: "stat" }, el("b", {}, v), el("span", {}, l));
+  const stat = (v, l, icon) => el("div", { class: "stat" }, icon ? el("i", { "aria-hidden": "true" }, icon) : "", el("b", {}, v), el("span", {}, l));
   $("#filament-summary").replaceChildren(
-    stat(spools, t("Spulen")), stat(neu, t("neu")), stat(spools - neu, t("angefangen")),
-    stat(`${(grams / 1000).toFixed(1)} kg`, t("Filament")),
-    stat(Object.values(d.in_printer || {}).reduce((n, l) => n + l.length, 0), t("im Drucker")),
-    ...((d.dryers || []).length ? [stat(Object.values(d.in_dryer || {}).flat().reduce((n, x) => n + x.qty, 0), t("im Trockner"))] : []),
-    ...(value ? [stat(fmtMoney(value, lastState?.costs?.currency, 0), t("Wert"))] : []),
+    stat(spools, t("Spulen"), sym("spool")), stat(neu, t("neu"), sym("spoolNew")), stat(spools - neu, t("angefangen"), sym("spoolStarted")),
+    stat(`${(grams / 1000).toFixed(1)} kg`, t("Filament"), sym("weight")),
+    stat(Object.values(d.in_printer || {}).reduce((n, l) => n + l.length, 0), t("im Drucker"), sym("printer")),
+    ...((d.dryers || []).length ? [stat(Object.values(d.in_dryer || {}).flat().reduce((n, x) => n + x.qty, 0), t("im Trockner"), sym("dryer"))] : []),
+    ...(value ? [stat(fmtMoney(value, lastState?.costs?.currency, 0), t("Wert"), sym("coins"))] : []),
     el("button", { class: "btn primary", style: "align-self:center", onclick: () => openSpoolDialog({ location: firstLocId() }) }, t("+ Filament")));
 
+  renderBrandLegend($("#filament-legend"));
   const wrap = $("#filament-locations");
   wrap.innerHTML = "";
   wrap.append(printerPanel());
@@ -2150,11 +2639,11 @@ function renderBrands() {
         el("h3", {}, b.name),
         el("span", { class: "note" }, tn(usage(b), "{0} Spule im Bestand", "{0} Spulen im Bestand")),
         el("span", { class: "spacer" }),
-        el("button", { class: "icon-btn", title: t("Bearbeiten"), "aria-label": t("Bearbeiten"), onclick: () => openBrandDialog(b) }, "✎"),
+        el("button", { class: "icon-btn", title: t("Bearbeiten"), "aria-label": t("Bearbeiten"), onclick: () => openBrandDialog(b) }, sym("pencil")),
         el("button", { class: "icon-btn", title: t("Löschen"), "aria-label": t("Löschen"), onclick: async () => {
           if (!confirm(t("Marke „{0}“ löschen? Der Bestand bleibt erhalten.", b.name))) return;
           try { await api(`api/filament/brands/${b.id}`, { method: "DELETE" }); loadFilament(); } catch (e) { toast(e.message, "bad"); }
-        } }, "🗑")),
+        } }, sym("trash"))),
       el("div", { class: "sub" }, t("Spule {0} g{1}", b.spool_g, b.note ? " · " + b.note : "")),
       b.materials.length ? el("div", { class: "chips" }, b.materials.map((m) => el("span", { class: "chip" }, m))) : null,
       b.colors.length ? el("div", { class: "swatches" }, b.colors.map((c) => el("span", { class: "cswatch", title: [c.name, c.material].filter(Boolean).join(" · ") },
@@ -2203,13 +2692,13 @@ function openBrandDialog(brand) {
       ni.addEventListener("input", () => { c.name = ni.value; });
       mi.addEventListener("change", () => { c.material = mi.value; });
       return el("div", { class: "color-line" }, ci, ni, mi,
-        el("button", { class: "icon-btn", type: "button", "aria-label": t("Entfernen"), onclick: () => { b.colors.splice(idx, 1); renderCols(); } }, "✕"));
+        el("button", { class: "icon-btn", type: "button", "aria-label": t("Entfernen"), onclick: () => { b.colors.splice(idx, 1); renderCols(); } }, sym("close")));
     }));
   };
   renderMats(); renderCols();
   form.replaceChildren(
     el("div", { class: "dialog-head" }, el("h3", {}, brand.id ? t("Marke bearbeiten") : t("Marke hinzufügen")),
-      el("button", { class: "icon-btn", value: "cancel", "aria-label": t("Schliessen") }, "✕")),
+      el("button", { class: "icon-btn", value: "cancel", "aria-label": t("Schliessen") }, sym("close"))),
     el("div", { class: "fields" },
       el("label", { class: "field" }, t("Name"), inp("name", { placeholder: t("z. B. Bambu Lab") })),
       el("label", { class: "field" }, t("Spulengewicht (g)"), inp("spool_g", { type: "number", min: "0", step: "50" }),
@@ -2240,19 +2729,20 @@ function locationPanel(loc, idx) {
     .sort((a, b) => (a.material + a.brand + a.color_name).localeCompare(b.material + b.brand + b.color_name));
   const count = items.reduce((s, i) => s + homeCount(i), 0);
   const settings = el("div", { class: "loc-settings", hidden: true });
-  const panel = el("section", { class: "fil-loc" },
+  const locPrinter = loc.printer_id && (lastState?.printers || []).find((x) => x.id === loc.printer_id);
+  const panel = el("section", { class: `fil-loc${locPrinter ? ` brand-loc brand-${brandOf(locPrinter)}` : ""}` },
     el("header", { class: "fil-head" },
       el("div", {}, el("h3", {}, locName(loc)), el("span", { class: "note" }, tn(count, "{0} Spule", "{0} Spulen"),
         loc.printer_id ? (loc.external ? t(" · externer Halter von {0}", printerName(loc.printer_id))
           : (lastState?.printers || []).find((x) => x.id === loc.printer_id)?.type === "moonraker"
           ? t(" · im Drucker {0}", printerName(loc.printer_id)) : t(" · AMS von {0}", printerName(loc.printer_id))) : "")),
       el("div", { class: "sensors" },
-        sensorChip("🌡", loc.temp_entity, "°C"),
-        sensorChip("💧", loc.hum_entity, "%", Number(loc.hum_max) || null),
+        sensorChip(sym("thermo"), loc.temp_entity, "°C"),
+        sensorChip(sym("drop"), loc.hum_entity, "%", Number(loc.hum_max) || null),
         batteryChip(loc.bat_entity),
         !loc.temp_entity && !loc.hum_entity && !loc.bat_entity ? el("span", { class: "note" }, t("keine Sensoren")) : null,
         el("button", { class: "icon-btn", title: t("Name, Sensoren, Reihenfolge"), "aria-label": t("Einstellungen"),
-          onclick: () => { settings.hidden = !settings.hidden; } }, "⚙"))),
+          onclick: () => { settings.hidden = !settings.hidden; } }, sym("gear")))),
     settings);
 
   // settings: name + sensors + humidity limit
@@ -2301,8 +2791,8 @@ function locationPanel(loc, idx) {
         try { await api(`api/filament/locations/${key}`, { method: "PUT", json: draftLoc }); toast(t("Gespeichert"), "ok"); loadFilament(); }
         catch (e) { toast(e.message, "bad"); }
       } }, t("Speichern")),
-      el("button", { class: "btn", disabled: !sameGroup(idx - 1), title: t("Nach oben"), onclick: () => move(-1) }, "↑"),
-      el("button", { class: "btn", disabled: !sameGroup(idx + 1), title: t("Nach unten"), onclick: () => move(1) }, "↓"),
+      el("button", { class: "btn", disabled: !sameGroup(idx - 1), title: t("Nach oben"), onclick: () => move(-1) }, sym("arrowUp")),
+      el("button", { class: "btn", disabled: !sameGroup(idx + 1), title: t("Nach unten"), onclick: () => move(1) }, sym("arrowDown")),
       el("span", { class: "spacer" }),
       el("button", { class: "btn danger", disabled: !others.length,
         title: others.length ? "" : t("Der letzte Lagerort kann nicht gelöscht werden"),
@@ -2318,6 +2808,7 @@ function locationPanel(loc, idx) {
 }
 
 function slotName(slot) {
+  if (String(slot) === "Ext") return t("Extern");
   return /^\d+$/.test(String(slot)) ? `Slot ${slot}` : String(slot);
 }
 
@@ -2385,19 +2876,27 @@ function assignSelect(pr, f) {
   const sel = wrap;
   const HOW = { uid: t("Kennung"), color: t("Material + Farbe"), family_color: t("Materialfamilie + Farbe"),
     memory: t("zuletzt in diesem Slot") };
-  const how = f.manual ? t("✋ von Hand zugeordnet") : HOW[f.how] ? t("erkannt über {0}", HOW[f.how]) : t("nicht erkannt");
+  const how = f.manual ? [sym("hand"), " ", t("von Hand zugeordnet")] : HOW[f.how] ? t("erkannt über {0}", HOW[f.how]) : t("nicht erkannt");
   return el("div", { class: "assign" }, sel, el("span", { class: "how" }, how));
 }
 
+let loadedTab = "";  // sub tab in «Loaded in printers»: "" = all printers
 function printerPanel() {
   const panel = el("section", { class: "fil-loc printer-loc" },
     el("header", { class: "fil-head" },
-      el("div", {}, el("h3", {}, t("🖨 Im Drucker geladen")),
+      el("div", {}, el("h3", {}, sym("printer"), " ", t("Im Drucker geladen")),
         el("span", { class: "note" }, t("wird automatisch aktualisiert")))));
   const list = el("div", { class: "spools" });
   let n = 0;
+  const groups = [];
   for (const pr of filData.loaded || []) {
     const empties = [];
+    // one block per printer, in its brand colour (helps when several printers run at once)
+    const live = (lastState?.printers || []).find((x) => x.id === pr.printer_id);
+    const cnt = el("span", { class: "note" });
+    const grp = el("div", { class: `loaded-group brand-${brandOf(live || {})}`, "data-printer": pr.printer_id },
+      el("div", { class: "loaded-group-head" }, el("b", {}, pr.printer), cnt));
+    const before = n;
     for (const f of pr.filaments) {
       if (!f.type) { empties.push(slotName(f.slot)); continue; }
       n++;
@@ -2408,31 +2907,48 @@ function printerPanel() {
         // where the spool goes when taken out: its home if it is parked in the printer's AMS / box
         const homeId = item.return_to && locById(item.return_to) ? item.return_to : item.location;
         const home = locName(locById(homeId)) || homeId;
-        list.append(el("div", { class: `spool loaded${f.active ? " active" : ""}` },
-          spoolIcon(item.color || f.color, { size: 38, fill }),
+        grp.append(el("div", { class: `spool loaded${f.active ? " active" : ""}` },
+          spoolIcon(item.color || f.color, { size: 48, fill }),
           el("div", { class: "spool-main" },
             el("div", { class: "title" }, [item.material, item.brand].filter(Boolean).join(" · ")),
             el("div", { class: "sub" }, `${item.color_name || item.color}${f.remain != null ? t(" · {0} % übrig", f.remain) : ""}`),
             el("div", { class: "loaded-badges" },
-              el("span", { class: "loaded-badge" }, `🖨 ${where}`),
+              el("span", { class: "loaded-badge" }, sym("printer"), ` ${where}`),
               f.active ? el("span", { class: "badge printing mini" }, t("druckt gerade")) : null,
               el("span", { class: "note" }, t("zurück nach: {0}", home))),
             assignSelect(pr, f)),
-          el("button", { class: "icon-btn", title: t("Bearbeiten"), "aria-label": t("Bearbeiten"), onclick: () => openSpoolDialog(item) }, "✎")));
+          el("button", { class: "icon-btn", title: t("Bearbeiten"), "aria-label": t("Bearbeiten"), onclick: () => openSpoolDialog(item) }, sym("pencil"))));
       } else {
         const add = () => openSpoolDialog({ location: firstLocId(true), material: (f.type || "").split(" ")[0],
           color: f.color || "#cccccc", uid: f.uid || "", count: 1, condition: "angefangen" });
-        list.append(el("div", { class: "spool loaded unknown" },
-          spoolIcon(f.color, { size: 38, fill }),
+        grp.append(el("div", { class: "spool loaded unknown" },
+          spoolIcon(f.color, { size: 48, fill }),
           el("div", { class: "spool-main" },
             el("div", { class: "title" }, f.type),
             el("div", { class: "sub" }, t("{0}nicht im Bestand{1}", f.manual ? t("von Hand: ") : "", f.uid ? t(" · Kennung {0}", f.uid) : "")),
-            el("div", { class: "loaded-badges" }, el("span", { class: "loaded-badge" }, `🖨 ${where}`)),
+            el("div", { class: "loaded-badges" }, el("span", { class: "loaded-badge" }, sym("printer"), ` ${where}`)),
             filData.items.length ? assignSelect(pr, f) : null),
           el("button", { class: "btn", onclick: add }, t("Erfassen"))));
       }
     }
-    if (empties.length) list.append(el("div", { class: "note empty-slots" }, t("{0}: leer – {1}", pr.printer, empties.join(", "))));
+    cnt.textContent = ` · ${tn(n - before, "{0} Spule", "{0} Spulen")}`;
+    if (empties.length) grp.append(el("div", { class: "note empty-slots" }, t("{0}: leer – {1}", pr.printer, empties.join(", "))));
+    groups.push([pr, grp]);
+    list.append(grp);
+  }
+  // sub tabs: all printers or a single one (only with more than one printer)
+  if (groups.length > 1) {
+    if (!groups.some(([pr]) => pr.printer_id === loadedTab)) loadedTab = "";
+    const show = () => {
+      for (const [pr, grp] of groups) grp.hidden = !!loadedTab && pr.printer_id !== loadedTab;
+      for (const b of tabs.children) b.classList.toggle("active", b.dataset.sub === loadedTab);
+    };
+    const tab = (id, label, brand) => el("button", { type: "button", "data-sub": id, class: brand ? `brand-${brand}` : "",
+      onclick: () => { loadedTab = id; show(); } }, label);
+    const tabs = el("nav", { class: "subtabs loaded-tabs", role: "tablist" }, tab("", t("Alle")),
+      ...groups.map(([pr]) => tab(pr.printer_id, pr.printer, brandOf((lastState?.printers || []).find((x) => x.id === pr.printer_id) || {}))));
+    list.prepend(tabs);
+    show();
   }
   if (!(filData.loaded || []).length) list.append(el("div", { class: "note", style: "padding:8px 2px" }, t("Kein Drucker meldet geladenes Filament.")));
   panel.querySelector(".note").textContent = tn(n, "{0} Spule · wird automatisch aktualisiert", "{0} Spulen · wird automatisch aktualisiert");
@@ -2448,7 +2964,6 @@ function spoolRow(it) {
   const move = el("select", { title: t("Verschieben"), "aria-label": t("Verschieben") },
     el("option", { value: "" }, "→ …"),
     locs().filter((l) => l.id !== it.location).map((l) => el("option", { value: l.id }, `→ ${locName(l)}`)));
-  const extra = it.condition === "angefangen" && it.remaining_g != null ? ` · ≈ ${Math.round(it.remaining_g)} g` : "";
   const inPrinter = filData.in_printer?.[it.id] || [];
   const inDryer = dryerQty(it.id);
   const here = Math.max(0, (Number(it.count) || 0) - inPrinter.length - inDryer);
@@ -2478,7 +2993,7 @@ function spoolRow(it) {
     moveBox.hidden = false;
   });
   return el("div", { class: `spool${Number(it.count) ? "" : " empty"}` },
-    spoolIcon(it.color, { size: 38, fill: it.condition === "angefangen" && it.remaining_g != null && it.spool_g
+    spoolIcon(it.color, { size: 48, fill: it.condition === "angefangen" && it.remaining_g != null && it.spool_g
       ? Number(it.remaining_g) / Number(it.spool_g) : (it.condition === "angefangen" ? 0.55 : 1) }),
     el("div", { class: "spool-main" },
       el("div", { class: "title", title: [it.material, it.brand].filter(Boolean).join(" · ") },
@@ -2486,24 +3001,27 @@ function spoolRow(it) {
       el("div", { class: "sub" },
         el("span", { class: `badge mini ${it.condition === "neu" ? "finished" : "paused"}` }, COND_LABEL[it.condition]),
         isLow(it) ? el("span", { class: "badge mini failed", title: t("Weniger als {0} g übrig", lastState?.filament_low_g) }, t("knapp")) : null,
-        ` ${it.color_name || it.color}${extra}${it.note ? " · " + it.note : ""}`),
+        // important: remaining weight; less important: colour code (only when there is no colour name) and note
+        it.condition === "angefangen" && it.remaining_g != null ? el("b", { class: "remain" }, `≈ ${Math.round(it.remaining_g)} g`) : null,
+        it.color_name ? el("span", { class: "cname" }, it.color_name) : (it.color ? el("span", { class: "hex" }, it.color) : null),
+        it.note ? el("span", { class: "snote" }, it.note) : null),
       inPrinter.length || inDryer || it.dried_at || it.return_to ? el("div", { class: "loaded-badges" },
         it.return_to ? el("span", { class: "note", title: t("Kommt an diesen Ort zurück, wenn du die Spule bei laufendem Drucker aus dem AMS nimmst.") },
-          t("↩ aus {0}", locName(locById(it.return_to)))) : null,
+          sym("returnTo"), " ", t("aus {0}", locName(locById(it.return_to)))) : null,
         inPrinter.length ? el("span", { class: "loaded-badge" }, t("+ {0} im Drucker geladen", inPrinter.length)) : null,
         inDryer ? el("span", { class: "loaded-badge dry" }, t("+ {0} im Trockner", inDryer)) : null,
-        it.dried_at ? el("span", { class: "note", title: fmtDate(it.dried_at) }, t("🌀 getrocknet {0}", driedAgo(it.dried_at))) : null) : null,
+        it.dried_at ? el("span", { class: "note", title: fmtDate(it.dried_at) }, sym("dryer"), " ", t("getrocknet {0}", driedAgo(it.dried_at))) : null) : null,
       moveBox),
     el("div", { class: "counter" },
       el("button", { class: "icon-btn", "aria-label": t("weniger"), onclick: () => save({ count: Math.max(0, (Number(it.count) || 0) - 1) }) }, "−"),
       el("b", { title: inPrinter.length ? t("{0} insgesamt, {1} im Drucker", it.count, inPrinter.length) : "" }, String(here)),
       el("button", { class: "icon-btn", "aria-label": t("mehr"), onclick: () => save({ count: (Number(it.count) || 0) + 1 }) }, "+")),
     move,
-    el("button", { class: "icon-btn", title: t("Bearbeiten"), "aria-label": t("Bearbeiten"), onclick: () => openSpoolDialog(it) }, "✎"),
+    el("button", { class: "icon-btn", title: t("Bearbeiten"), "aria-label": t("Bearbeiten"), onclick: () => openSpoolDialog(it) }, sym("pencil")),
     el("button", { class: "icon-btn", title: t("Löschen"), "aria-label": t("Löschen"), onclick: async () => {
       if (!confirm(t("Eintrag löschen?"))) return;
       await api(`api/filament/items/${it.id}`, { method: "DELETE" }); loadFilament();
-    } }, "🗑"));
+    } }, sym("trash")));
 }
 
 // dropdown with an "other…" entry that switches to free text
@@ -2593,7 +3111,7 @@ function openSpoolDialog(item) {
   loc.addEventListener("change", () => { it.location = loc.value; });
   form.append(
     el("div", { class: "dialog-head" }, el("h3", {}, item.id ? t("Filament bearbeiten") : t("Filament hinzufügen")),
-      el("button", { class: "icon-btn", value: "cancel", "aria-label": t("Schliessen") }, "✕")),
+      el("button", { class: "icon-btn", value: "cancel", "aria-label": t("Schliessen") }, sym("close"))),
     el("div", { class: "fields" },
       el("label", { class: "field" }, t("Marke"), brandPick.node,
         (filData.brands || []).length ? null : el("small", {}, t("Tipp: Marken unter Filament → Marken erfassen"))),
@@ -2679,7 +3197,7 @@ function dryerPanel() {
   });
   const running = dryers.filter((d) => d.job).length;
   panel.append(el("header", { class: "fil-head" },
-    el("div", {}, el("h3", {}, t("🌀 Trockner")),
+    el("div", {}, el("h3", {}, sym("dryer"), " ", t("Trockner")),
       el("span", { class: "note" }, dryers.length ? t("{0} von {1} in Betrieb", running, dryers.length) : t("Anzahl Trockner wählen"))),
     el("label", { class: "dryer-count" }, t("Anzahl"), countSel)));
   if (!dryers.length) return panel;
@@ -2711,7 +3229,7 @@ function dryerCard(d) {
     const name = prompt(t("Name des Trockners"), d.name);
     if (!name) return;
     try { await api(`api/filament/dryers/${d.id}`, { method: "PUT", json: { name } }); loadFilament(); } catch (e) { toast(e.message, "bad"); }
-  } }, "✎");
+  } }, sym("pencil"));
   const card = el("div", { class: `dryer${d.job ? " running" : ""}` },
     el("div", { class: "dryer-head" }, el("b", {}, d.name), rename, el("span", { class: "spacer" }),
       el("span", { class: `badge ${d.job ? "printing" : "idle"}` }, d.job ? t("trocknet") : t("frei"))));
@@ -2727,7 +3245,7 @@ function dryerCard(d) {
         const it = byId[e.item_id];
         return el("div", { class: "dryer-item" }, spoolIcon(it?.color || "#ccc", { size: 26 }),
           el("span", {}, `${e.qty > 1 ? e.qty + "× " : ""}${it ? itemLabel(it) : "?"}`),
-          it ? el("span", { class: "note" }, `↩ ${locName(locById(it.location))}`) : null);
+          it ? el("span", { class: "note" }, sym("returnTo"), ` ${locName(locById(it.location))}`) : null);
       })),
       el("div", { class: "row-btns" },
         el("button", { class: "btn", onclick: () => act("extend", { minutes: 30 }) }, "+30 min"),
@@ -2788,7 +3306,7 @@ function openDryerDialog(d, preset = null) {
   suggest();
   form.replaceChildren(
     el("div", { class: "dialog-head" }, el("h3", {}, t("{0}: Trocknung starten", d.name)),
-      el("button", { class: "icon-btn", value: "cancel", "aria-label": t("Schliessen") }, "✕")),
+      el("button", { class: "icon-btn", value: "cancel", "aria-label": t("Schliessen") }, sym("close"))),
     el("div", { class: "field wide" }, t("Spulen einlegen"), list),
     el("div", { class: "fields" },
       el("label", { class: "field" }, t("Dauer (Stunden)"), hours),

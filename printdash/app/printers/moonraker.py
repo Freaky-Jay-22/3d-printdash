@@ -139,7 +139,7 @@ class MoonrakerPrinter(BasePrinter):
             self.webcams = [c for c in cams if c.get("enabled", True)]
         except httpx.HTTPError:
             self.webcams = []
-        if not self.cfg.get("camera_url") and self.cfg.get("camera") is not False:
+        if not self.cfg.get("camera_url") and not self.cfg.get("camera_entity") and self.cfg.get("camera") is not False:
             await self._detect_snapmaker_camera()
 
     TEMP_PREFIXES = ("temperature_sensor ", "temperature_fan ", "heater_generic ")
@@ -583,6 +583,10 @@ class MoonrakerPrinter(BasePrinter):
     def camera_sources(self) -> list:
         if self.cfg.get("camera") is False:
             return []
+        entity = (self.cfg.get("camera_entity") or "").strip()
+        if entity:  # camera from Home Assistant
+            return [{"id": f"{self.id}-cam", "name": self.name, "url": entity,
+                     "mode": "ha_camera", "printer_id": self.id}]
         override = (self.cfg.get("camera_url") or "").strip()
         if override:
             if self.SNAPMAKER_IMAGE in override:

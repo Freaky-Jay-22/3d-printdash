@@ -33,11 +33,11 @@
       <span class="brand-name"><span class="brand-acc">3D-</span><span class="brand-mid">Print</span><span class="brand-acc">Dash</span></span>
     </div>
     <nav class="tabs" role="tablist">
-      <button data-view="overview" class="active" data-i18n>Übersicht</button>
-      <button data-view="cameras" data-i18n>Kameras</button>
-      <button data-view="history" data-i18n>Historie</button>
-      <button data-view="filament" data-i18n>Filament</button>
-      <button data-view="settings" data-i18n>Einstellungen</button>
+      <button data-view="overview" class="active"><span class="tab-ico" data-sym="tabOverview"></span><span data-i18n>Übersicht</span></button>
+      <button data-view="cameras"><span class="tab-ico" data-sym="tabCameras"></span><span data-i18n>Kameras</span></button>
+      <button data-view="history"><span class="tab-ico" data-sym="tabHistory"></span><span data-i18n>Historie</span></button>
+      <button data-view="filament"><span class="tab-ico" data-sym="tabFilament"></span><span data-i18n>Filament</span></button>
+      <button data-view="settings"><span class="tab-ico" data-sym="tabSettings"></span><span data-i18n>Einstellungen</span></button>
     </nav>
   </header>
 
@@ -46,6 +46,7 @@
   <main>
     <section id="view-overview" class="view active">
       <div id="roombar" class="roombar" hidden></div>
+      <div id="overview-tools" class="overview-tools" hidden></div>
       <div id="printer-grid" class="printer-grid"></div>
       <div id="empty-overview" class="empty" hidden>
         <p data-i18n>Noch keine Drucker eingerichtet.</p>
@@ -54,6 +55,7 @@
     </section>
 
     <section id="view-cameras" class="view">
+      <div id="camera-legend" class="brand-legend" hidden></div>
       <div id="camera-grid" class="camera-grid"></div>
       <div id="empty-cameras" class="empty" hidden><p data-i18n>Keine Kameras vorhanden.</p></div>
     </section>
@@ -62,12 +64,14 @@
       <div class="history-head">
         <div id="history-stats" class="stats"></div>
         <div class="history-tools">
-          <button id="history-stats-btn" class="btn" type="button" data-i18n>📊 Statistik</button>
-          <a id="history-csv" class="btn" href="api/history.csv" download data-i18n>⬇ CSV</a>
+          <button id="history-stats-btn" class="btn" type="button"><span data-sym="chart"></span> <span data-i18n>Statistik</span></button>
+          <a id="history-csv" class="btn" href="api/history.csv" download><span data-sym="download"></span> CSV</a>
         </div>
-        <select id="history-filter" aria-label="Drucker filtern" data-i18n-attr="aria-label"></select>
+        <select id="history-filter" aria-label="Drucker filtern" data-i18n-attr="aria-label" hidden></select>
       </div>
       <div id="history-statpanel" class="settings-section statpanel" hidden></div>
+      <nav id="history-tabs" class="hist-tabs" role="tablist" hidden></nav>
+      <div id="history-legend" class="brand-legend" hidden></div>
       <div id="history-list" class="history-list"></div>
     </section>
 
@@ -77,6 +81,7 @@
         <button data-sub="marken" data-i18n>Marken</button>
       </nav>
       <div id="filament-summary" class="stats"></div>
+      <div id="filament-legend" class="brand-legend" hidden></div>
       <div id="filament-locations" class="fil-locations"></div>
       <div id="filament-brands" class="brands" hidden></div>
     </section>
@@ -92,7 +97,7 @@
 
   <div id="cam-overlay" class="overlay" hidden>
     <div class="overlay-inner">
-      <div class="overlay-head"><span id="cam-overlay-title"></span><button class="icon-btn" data-close aria-label="Schliessen" data-i18n-attr="aria-label">✕</button></div>
+      <div class="overlay-head"><span id="cam-overlay-title"></span><button class="icon-btn" data-close aria-label="Schliessen" data-i18n-attr="aria-label"><span data-sym="close"></span></button></div>
       <div class="overlay-cam"><img alt=""></div>
       <div id="cam-overlay-actions" class="overlay-actions" hidden></div>
     </div>
@@ -100,7 +105,7 @@
 
   <dialog id="print-dialog">
     <form method="dialog" class="dialog-body" id="print-form">
-      <div class="dialog-head"><h3 id="print-title" data-i18n>Datei drucken</h3><button class="icon-btn" value="cancel" aria-label="Schliessen" data-i18n-attr="aria-label">✕</button></div>
+      <div class="dialog-head"><h3 id="print-title" data-i18n>Datei drucken</h3><button class="icon-btn" value="cancel" aria-label="Schliessen" data-i18n-attr="aria-label"><span data-sym="close"></span></button></div>
       <div id="print-content"></div>
     </form>
   </dialog>

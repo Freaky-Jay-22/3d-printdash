@@ -1,8 +1,8 @@
 # Home Assistant app (add-on) definition
 name: 3D-PrintDash
-version: "0.3.10"
+version: "0.3.11"
 slug: printdash
-description: Local dashboard for your 3D printers (Bambu Lab LAN, Klipper/Moonraker)
+description: Local dashboard for your 3D printers (Bambu Lab, Klipper/Moonraker, Creality)
 url: https://github.com/Freaky-Jay-22/3d-printdash
 # prebuilt images from GitHub (see .github/workflows/build.yaml);
 # remove this line to build the image on your own Home Assistant machine

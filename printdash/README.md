@@ -30,10 +30,10 @@ for the Klipper printer, a spreadsheet or notes for your filament, and Home Assi
 
 ### Features
 
-- **Overview:** one card per printer with camera, status, progress, time left and estimated finish,
-  layer, temperatures and loaded filaments
-- **Detail view** (click a card): all cameras large, plus all details, controls and recent prints,
-  optionally full screen
+- **Overview** (compact or detailed): one card per printer with camera, status, progress, time left and
+  estimated finish, layer, temperatures and loaded filaments
+- **Detail view** (click a card): all cameras large in four layouts, plus all details, controls and recent
+  prints, optionally full screen
 - **Cameras:** printer cameras and any external RTSP/MJPEG cameras, which you can assign to a printer
 - **Control:** pause, resume, stop, light (for Bambu printers see "Control of Bambu printers" below)
 - **Printing:** upload and start files, for Bambu printers with plate selection and AMS mapping
@@ -46,30 +46,34 @@ for the Klipper printer, a spreadsheet or notes for your filament, and Home Assi
 - **Notifications** with camera image via the Home Assistant app
 - **Smart plugs** from Home Assistant, with automatic switch-off after a print
 - **Timelapse** (optional): one image per layer, a video in the history, stored internally or on a NAS
-- **Design**: light or dark, accent colour of your choice
+- **Design**: light or dark, accent colour of your choice, brand colours per printer, works on the phone
 - **Room climate** (optional): temperature, humidity, air quality and sensor battery of your print room
 - **System load** of the Home Assistant machine (CPU, RAM, storage, temperatures) at the bottom of the overview
 - **English and German**, any currency
 
 ### Screenshots
 
-![Overview with a Bambu Lab and a Klipper printer](https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/overview.jpg)
+![Overview, detailed](https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/overview.jpg)
 
-**Overview** with a Bambu Lab and a Klipper printer side by side.
-① Several cameras per printer (built-in and external) ② AMS temperature, humidity and sensor battery
-from Home Assistant ③ Loaded filament per toolhead
+<p>
+  <img src="https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/overview-compact.jpg" alt="Overview, compact" width="49%">
+  <img src="https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/detail.jpg" alt="Printer details" width="49%">
+</p>
+<p>
+  <img src="https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/filament.png" alt="Filament" width="49%">
+  <img src="https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/history.png" alt="History" width="49%">
+</p>
+<p>
+  <img src="https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/cameras.jpg" alt="Cameras" width="49%">
+  <img src="https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/settings.png" alt="Settings" width="49%">
+</p>
+<p>
+  <img src="https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/mobile.jpg" alt="Phone: overview" width="24%">
+  <img src="https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/mobile-filament.jpg" alt="Phone: filament" width="24%">
+  <img src="https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/timelapse.gif" alt="Timelapse" width="49%">
+</p>
 
-![Filament management](https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/filament.png)
-
-**Filament:** ① inventory at a glance ② spools in the printer are detected automatically ③ dryer timer
-
-![Detail view of a printer](https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/detail.jpg)
-
-**Detail view** with all cameras, status and controls. ① Maintenance reminders for cleaning and lubrication
-
-![All cameras](https://raw.githubusercontent.com/Freaky-Jay-22/3d-printdash/main/docs/screenshots/cameras.jpg)
-
-**Cameras:** all printer cameras and external cameras on one page.
+Overview (detailed or compact), printer details, filament, history, cameras, settings, phone and timelapse.
 
 ### Supported printers
 
@@ -413,10 +417,10 @@ Klipper-Drucker, eine Tabelle oder Notizen fürs Filament und Home Assistant fü
 
 ### Funktionen
 
-- **Übersicht:** eine Karte pro Drucker mit Kamera, Status, Fortschritt, Restzeit und voraussichtlichem
-  Ende, Schicht, Temperaturen und geladenen Filamenten
-- **Detailansicht** (Karte anklicken): alle Kameras gross, dazu alle Infos, Steuerung und die letzten
-  Drucke, auf Wunsch im Vollbild
+- **Übersicht** (kompakt oder ausführlich): eine Karte pro Drucker mit Kamera, Status, Fortschritt, Restzeit
+  und voraussichtlichem Ende, Schicht, Temperaturen und geladenen Filamenten
+- **Detailansicht** (Karte anklicken): alle Kameras gross in vier Ansichten, dazu alle Infos, Steuerung und
+  die letzten Drucke, auf Wunsch im Vollbild
 - **Kameras:** Druckerkameras und beliebige externe RTSP-/MJPEG-Kameras, die du einem Drucker zuordnen kannst
 - **Steuerung:** Pause, Fortsetzen, Stopp, Licht (bei Bambu-Druckern siehe „Steuerung bei Bambu-Druckern“ weiter unten)
 - **Drucken:** Datei hochladen und starten, bei Bambu-Druckern mit Plattenwahl und AMS-Zuordnung
@@ -429,7 +433,7 @@ Klipper-Drucker, eine Tabelle oder Notizen fürs Filament und Home Assistant fü
 - **Benachrichtigungen** mit Kamerabild über die Home-Assistant-App
 - **Steckdosen** aus Home Assistant schalten, mit automatischem Ausschalten nach dem Druck
 - **Zeitraffer** (optional): ein Bild pro Schicht, ein Video in der Historie, intern oder auf einer NAS gespeichert
-- **Design**: hell oder dunkel, Akzentfarbe nach Wahl
+- **Design**: hell oder dunkel, Akzentfarbe nach Wahl, Markenfarben pro Drucker, auch fürs Handy
 - **Raumklima** (optional): Temperatur, Luftfeuchtigkeit, Luftqualität und Sensor-Batterie deines Druckraums
 - **Systemauslastung** des Home-Assistant-Rechners (CPU, RAM, Speicher, Temperaturen) unten in der Übersicht
 - **Deutsch und Englisch**, Währung frei wählbar
