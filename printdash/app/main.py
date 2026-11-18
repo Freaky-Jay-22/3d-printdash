@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 
 from . import config as config_store
-from . import auth, backup, costs, filament, ha, history, i18n, maintenance, notify, timelapse, uploads
+from . import auth, backup, costs, filament, ha, history, i18n, maintenance, notify, spoolman, timelapse, uploads
 from .camera import clean_orient
 from .i18n import t
 from .manager import Manager
@@ -501,6 +501,9 @@ async def get_filament():
     data["in_printer"] = filament.match(data, data["loaded"], reserved)
     data["dry_guide"] = filament.DRY_GUIDE
     data["now"] = time.time()
+    data["spoolman"] = spoolman.summary(manager.cfg, data)
+    data["read_only"] = filament.read_only()
+    data.pop("spoolman_seen", None)
     return data
 
 
@@ -555,20 +558,66 @@ async def assign_filament(body: dict):
     return {"ok": True}
 
 
+def _sync_spoolman_later():
+    if spoolman.settings(manager.cfg)["source"] == "sync":
+        asyncio.create_task(asyncio.to_thread(spoolman.sync, manager.cfg))
+
+
 @app.post("/api/filament/items")
 async def save_filament_item(body: dict):
-    return await asyncio.to_thread(filament.upsert, body)
+    old = next((i for i in (await asyncio.to_thread(filament.load))["items"] if i.get("id") == body.get("id")), None)
+    item = await asyncio.to_thread(_filament_call, filament.upsert, body)
+    try:
+        await asyncio.to_thread(spoolman.push_item, manager.cfg, item, old)
+    except Exception as exc:  # saved here; Spoolman is updated with the next comparison or export
+        log.warning("Spoolman: %s", exc)
+        raise HTTPException(502, t("Hier gespeichert, aber Spoolman meldet: {error}", error=str(exc)))
+    return item
 
 
 @app.post("/api/filament/items/{item_id}/move")
 async def move_filament_item(item_id: str, body: dict):
-    return await asyncio.to_thread(_filament_call, filament.move_item, item_id, body.get("to"), body.get("qty", 1))
+    item = await asyncio.to_thread(_filament_call, filament.move_item, item_id, body.get("to"), body.get("qty", 1))
+    _sync_spoolman_later()
+    return item
 
 
 @app.delete("/api/filament/items/{item_id}")
 async def delete_filament_item(item_id: str):
-    await asyncio.to_thread(filament.delete, item_id)
+    gone = await asyncio.to_thread(_filament_call, filament.delete, item_id)
+    if gone:
+        await asyncio.to_thread(spoolman.delete_item, manager.cfg, gone)
     return {"ok": True}
+
+
+# -- Spoolman (optional) -----------------------------------------------------------
+def _spoolman_call(fn, *args):
+    try:
+        return fn(*args)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:  # noqa: BLE001 – connection problems, HTTP errors of Spoolman
+        raise HTTPException(502, t("Spoolman nicht erreichbar: {error}", error=str(exc)))
+
+
+@app.post("/api/spoolman/check")
+async def spoolman_check(body: dict):
+    return await asyncio.to_thread(_spoolman_call, spoolman.check, str(body.get("url") or ""))
+
+
+@app.post("/api/spoolman/sync")
+async def spoolman_sync():
+    return await asyncio.to_thread(spoolman.sync, manager.cfg)
+
+
+@app.post("/api/spoolman/export")
+async def spoolman_export():
+    return await asyncio.to_thread(_spoolman_call, spoolman.export_local, manager.cfg)
+
+
+@app.post("/api/spoolman/adopt")
+async def spoolman_adopt():
+    return await asyncio.to_thread(_spoolman_call, spoolman.adopt_spoolman, manager.cfg)
 
 
 @app.post("/api/filament/brands")
@@ -668,6 +717,8 @@ async def put_config(body: dict, request: Request):
     changed = new_cfg.get("ui", {}).get("password") != manager.cfg.get("ui", {}).get("password")
     await manager.reload(new_cfg)
     await asyncio.to_thread(filament.ensure_printer_locations, new_cfg.get("printers", []))
+    if spoolman.settings(new_cfg)["source"] != "own":
+        await asyncio.to_thread(spoolman.sync, new_cfg)
     await manager.refresh_maintenance()
     resp = JSONResponse(config_store.masked(manager.cfg))
     # keep the person who just changed the password logged in

@@ -39,7 +39,7 @@ for the Klipper printer, a spreadsheet or notes for your filament, and Home Assi
 - **Printing:** upload and start files, for Bambu printers with plate selection and AMS mapping
 - **History** of all prints with final image, duration, filament usage and cost
 - **Filament management:** inventory by storage location, brands, detection of loaded spools, optional
-  usage tracking, low-stock warning, dryer timers
+  usage tracking, low-stock warning, dryer timers, optional link to Spoolman
 - **Maintenance reminders** for cleaning and lubrication per printer
 - **Statistics** per month, printer and material, CSV export
 - **Backup** and restore, import from another installation
@@ -99,10 +99,10 @@ for the Klipper printer, a spreadsheet or notes for your filament, and Home Assi
 | Printer | Connection | Notes |
 |---|---|---|
 | **Bambu Lab printers** | LAN (MQTT, FTPS) | Camera: video stream on the X1, P2 and H2 series, still images on P1 and A1. For control see below. |
-| **Klipper printers with Moonraker** | HTTP API | e.g. Voron, Sovol, Snapmaker U1, Qidi Q2. Multiple toolheads and the Qidi Box are supported. |
+| **Klipper printers with Moonraker** | HTTP API | e.g. Voron, Sovol, Snapmaker U1, Qidi Q2, Elegoo Centauri Carbon with COSMOS firmware. Multiple toolheads and the Qidi Box are supported. |
 | **Creality K1 series** *(experimental)* | Websocket | Stock firmware, no root needed. Status, temperatures, camera (also WebRTC or via Home Assistant), pause/stop, light and history. No file upload yet. Rooted with Moonraker: use "Klipper". |
 
-So far 3D-PrintDash has been tested with Bambu Lab X1C and P1S, a Snapmaker U1 and (by users) a Bambu Lab P2S and a Qidi Q2.
+So far 3D-PrintDash has been tested with Bambu Lab X1C and P1S, a Snapmaker U1 and (by users) a Bambu Lab P2S, a Qidi Q2 and an Elegoo Centauri Carbon with COSMOS firmware.
 Feedback about other models is welcome.
 
 ### Updates
@@ -272,6 +272,22 @@ with **"Add"**.
 - **Low stock:** opened spools below a set weight (default 100 g) are marked "low" and you get a
   notification (can be switched off).
 
+#### Spoolman (optional)
+
+Already using [Spoolman](https://github.com/Donkie/Spoolman)? Connect it under Settings → Filament & prices
+→ "Keep the filament inventory in" and enter its address (e.g. `http://192.168.1.10:7912`):
+
+- **3D-PrintDash** (default): own inventory, Spoolman is not used.
+- **Sync with Spoolman:** both inventories stay equal. Spools from Spoolman appear here, new spools from
+  here go to Spoolman, moves and edits too, and the usage after each print is subtracted in Spoolman.
+  Spools that only exist here can be transferred to Spoolman once, or replaced by Spoolman's inventory.
+  If Moonraker already reports to Spoolman, switch off reporting for Klipper printers to avoid double counting.
+- **Spoolman (show only):** the spools come from Spoolman and are only shown. 3D-PrintDash subtracts
+  nothing. Your own inventory stays saved for when you switch back.
+
+In both Spoolman modes, brands (with materials, colours and spool weight) are taken over from Spoolman.
+Under "Prices" you choose whether the material prices come from Spoolman or are set in 3D-PrintDash.
+
 #### Dryers
 
 Up to 4 dryers with a timer: load spools from the inventory, choose duration and optionally temperature
@@ -404,7 +420,7 @@ Everything is stored in the app's data folder (`/data`): `config.json` (settings
 Bugs and ideas are welcome as an [issue](https://github.com/Freaky-Jay-22/3d-printdash/issues). More
 languages can be added in `printdash/app/static/lang/` and `printdash/app/i18n.py`.
 
-Questions, help or want to test new printers? Join the [Discord server](https://discord.gg/nP3KDZavXr).
+Questions, help or want to test new printers? Join the [Discord server](https://discord.gg/kBZ86GXGEA).
 
 ### License
 
@@ -445,7 +461,7 @@ Klipper-Drucker, eine Tabelle oder Notizen fürs Filament und Home Assistant fü
 - **Drucken:** Datei hochladen und starten, bei Bambu-Druckern mit Plattenwahl und AMS-Zuordnung
 - **Historie** aller Drucke mit Endbild, Dauer, Filamentverbrauch und Kosten
 - **Filament-Verwaltung:** Bestand nach Lagerorten, Marken, Erkennung der geladenen Spulen, optional
-  Verbrauch abziehen, Warnung bei knappem Filament, Trockner-Timer
+  Verbrauch abziehen, Warnung bei knappem Filament, Trockner-Timer, optional mit Spoolman verbunden
 - **Wartungserinnerungen** fürs Reinigen und Schmieren pro Drucker
 - **Statistik** pro Monat, Drucker und Material, CSV-Export
 - **Datensicherung** und Wiederherstellung, Übernahme von einer anderen Installation
@@ -463,10 +479,10 @@ Klipper-Drucker, eine Tabelle oder Notizen fürs Filament und Home Assistant fü
 | Drucker | Verbindung | Hinweise |
 |---|---|---|
 | **Bambu-Lab-Drucker** | LAN (MQTT, FTPS) | Kamera: Video-Stream bei der X1-, P2- und H2-Serie, Einzelbilder bei P1 und A1. Steuerung siehe unten. |
-| **Klipper-Drucker mit Moonraker** | HTTP-API | z. B. Voron, Sovol, Snapmaker U1, Qidi Q2. Mehrere Werkzeugköpfe und die Qidi Box werden unterstützt. |
+| **Klipper-Drucker mit Moonraker** | HTTP-API | z. B. Voron, Sovol, Snapmaker U1, Qidi Q2, Elegoo Centauri Carbon mit COSMOS-Firmware. Mehrere Werkzeugköpfe und die Qidi Box werden unterstützt. |
 | **Creality K1-Serie** *(experimentell)* | Websocket | Normale Firmware, ohne Root. Status, Temperaturen, Kamera (auch WebRTC oder über Home Assistant), Pause/Stopp, Licht und Historie. Noch kein Datei-Upload. Gerootet mit Moonraker: «Klipper» wählen. |
 
-Getestet ist 3D-PrintDash bisher mit Bambu Lab X1C und P1S, einem Snapmaker U1 und (von Nutzern) einem Bambu Lab P2S und einem Qidi Q2.
+Getestet ist 3D-PrintDash bisher mit Bambu Lab X1C und P1S, einem Snapmaker U1 und (von Nutzern) einem Bambu Lab P2S, einem Qidi Q2 und einer Elegoo Centauri Carbon mit COSMOS-Firmware.
 Rückmeldungen zu anderen Modellen sind willkommen.
 
 ### Updates
@@ -641,6 +657,23 @@ Jede Spule wird höchstens so oft zugeordnet, wie sie im Bestand vorhanden ist. 
 - **Knappes Filament:** Angefangene Spulen unter einem einstellbaren Gewicht (Standard 100 g) werden als
   „knapp“ markiert, dazu kommt eine Benachrichtigung (abschaltbar).
 
+#### Spoolman (optional)
+
+Nutzt du schon [Spoolman](https://github.com/Donkie/Spoolman)? Verbinde es unter Einstellungen → Filament &
+Preise → „Filamentbestand führen in“ und trag die Adresse ein (z. B. `http://192.168.1.10:7912`):
+
+- **3D-PrintDash** (Standard): eigener Bestand, Spoolman wird nicht genutzt.
+- **Abgleich mit Spoolman:** Beide Bestände bleiben gleich. Spulen aus Spoolman erscheinen hier, neue
+  Spulen von hier kommen nach Spoolman, ebenso Verschieben und Ändern, und der Verbrauch nach jedem Druck
+  wird in Spoolman abgezogen. Spulen, die es nur hier gibt, kannst du einmalig nach Spoolman übertragen
+  oder durch den Bestand aus Spoolman ersetzen. Meldet Moonraker schon an Spoolman, schalte die Meldung
+  für Klipper-Drucker aus, sonst wird doppelt abgezogen.
+- **Spoolman (nur anzeigen):** Die Spulen kommen aus Spoolman und werden nur angezeigt. 3D-PrintDash zieht
+  nichts ab. Dein eigener Bestand bleibt gespeichert, falls du zurückwechselst.
+
+In beiden Spoolman-Modi werden die Marken (mit Materialien, Farben und Spulengewicht) aus Spoolman übernommen.
+Unter „Preise“ wählst du, ob die Materialpreise aus Spoolman kommen oder in 3D-PrintDash festgelegt werden.
+
 #### Trockner
 
 Bis zu 4 Trockner mit Timer: Spulen aus dem Bestand einlegen, Dauer und optional Temperatur wählen
@@ -776,7 +809,7 @@ Sicherungen vor einer Wiederherstellung).
 Fehler und Ideen gerne als [Issue](https://github.com/Freaky-Jay-22/3d-printdash/issues). Weitere Sprachen
 lassen sich über `printdash/app/static/lang/` und `printdash/app/i18n.py` ergänzen.
 
-Fragen, Hilfe oder Lust, neue Drucker zu testen? Komm auf den [Discord-Server](https://discord.gg/nP3KDZavXr).
+Fragen, Hilfe oder Lust, neue Drucker zu testen? Komm auf den [Discord-Server](https://discord.gg/kBZ86GXGEA).
 
 ### Lizenz
 

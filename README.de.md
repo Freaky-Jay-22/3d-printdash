@@ -4,7 +4,7 @@
 
 [English](README.md) · **Deutsch**
 
-[![Discord](https://img.shields.io/badge/Discord-Zur%20Community-5865F2?logo=discord&logoColor=white)](https://discord.gg/nP3KDZavXr)
+[![Discord](https://img.shields.io/badge/Discord-Zur%20Community-5865F2?logo=discord&logoColor=white)](https://discord.gg/kBZ86GXGEA)
 
 Ein lokales Dashboard für deine 3D-Drucker. 3D-PrintDash läuft als App (früher „Add-on“) in Home Assistant
 oder als Docker-Container und spricht die Drucker direkt in deinem Netzwerk an, ohne Cloud und ohne
@@ -37,7 +37,7 @@ Klipper-Drucker, eine Tabelle oder Notizen fürs Filament und Home Assistant fü
 - **Drucken:** Datei hochladen und starten, bei Bambu-Druckern mit Plattenwahl und AMS-Zuordnung
 - **Historie** aller Drucke mit Endbild, Dauer, Filamentverbrauch und Kosten
 - **Filament-Verwaltung:** Bestand nach Lagerorten, Marken, Erkennung der geladenen Spulen, optional
-  Verbrauch abziehen, Warnung bei knappem Filament, Trockner-Timer
+  Verbrauch abziehen, Warnung bei knappem Filament, Trockner-Timer, optional mit Spoolman verbunden
 - **Wartungserinnerungen** fürs Reinigen und Schmieren pro Drucker
 - **Statistik** pro Monat, Drucker und Material, CSV-Export
 - **Datensicherung** und Wiederherstellung, Übernahme von einer anderen Installation
@@ -97,10 +97,10 @@ Klipper-Drucker, eine Tabelle oder Notizen fürs Filament und Home Assistant fü
 | Drucker | Verbindung | Hinweise |
 |---|---|---|
 | **Bambu-Lab-Drucker** | LAN (MQTT, FTPS) | Kamera: Video-Stream bei der X1-, P2- und H2-Serie, Einzelbilder bei P1 und A1. Steuerung siehe unten. |
-| **Klipper-Drucker mit Moonraker** | HTTP-API | z. B. Voron, Sovol, Snapmaker U1, Qidi Q2. Mehrere Werkzeugköpfe und die Qidi Box werden unterstützt. |
+| **Klipper-Drucker mit Moonraker** | HTTP-API | z. B. Voron, Sovol, Snapmaker U1, Qidi Q2, Elegoo Centauri Carbon mit COSMOS-Firmware. Mehrere Werkzeugköpfe und die Qidi Box werden unterstützt. |
 | **Creality K1-Serie** *(experimentell)* | Websocket | Normale Firmware, ohne Root. Status, Temperaturen, Kamera (auch WebRTC oder über Home Assistant), Pause/Stopp, Licht und Historie. Noch kein Datei-Upload. Gerootet mit Moonraker: «Klipper» wählen. |
 
-Getestet ist 3D-PrintDash bisher mit Bambu Lab X1C und P1S, einem Snapmaker U1 und (von Nutzern) einem Bambu Lab P2S und einem Qidi Q2.
+Getestet ist 3D-PrintDash bisher mit Bambu Lab X1C und P1S, einem Snapmaker U1 und (von Nutzern) einem Bambu Lab P2S, einem Qidi Q2 und einer Elegoo Centauri Carbon mit COSMOS-Firmware.
 Rückmeldungen zu anderen Modellen sind willkommen.
 
 ## Installation
@@ -339,6 +339,23 @@ Jede Spule wird höchstens so oft zugeordnet, wie sie im Bestand vorhanden ist. 
 - **Knappes Filament:** Angefangene Spulen unter einem einstellbaren Gewicht (Standard 100 g) werden als
   „knapp“ markiert, dazu kommt eine Benachrichtigung (abschaltbar).
 
+### Spoolman (optional)
+
+Nutzt du schon [Spoolman](https://github.com/Donkie/Spoolman)? Verbinde es unter Einstellungen → Filament &
+Preise → „Filamentbestand führen in“ und trag die Adresse ein (z. B. `http://192.168.1.10:7912`):
+
+- **3D-PrintDash** (Standard): eigener Bestand, Spoolman wird nicht genutzt.
+- **Abgleich mit Spoolman:** Beide Bestände bleiben gleich. Spulen aus Spoolman erscheinen hier, neue
+  Spulen von hier kommen nach Spoolman, ebenso Verschieben und Ändern, und der Verbrauch nach jedem Druck
+  wird in Spoolman abgezogen. Spulen, die es nur hier gibt, kannst du einmalig nach Spoolman übertragen
+  oder durch den Bestand aus Spoolman ersetzen. Meldet Moonraker schon an Spoolman, schalte die Meldung
+  für Klipper-Drucker aus, sonst wird doppelt abgezogen.
+- **Spoolman (nur anzeigen):** Die Spulen kommen aus Spoolman und werden nur angezeigt. 3D-PrintDash zieht
+  nichts ab. Dein eigener Bestand bleibt gespeichert, falls du zurückwechselst.
+
+In beiden Spoolman-Modi werden die Marken (mit Materialien, Farben und Spulengewicht) aus Spoolman übernommen.
+Unter „Preise“ wählst du, ob die Materialpreise aus Spoolman kommen oder in 3D-PrintDash festgelegt werden.
+
 ### Trockner
 
 Bis zu 4 Trockner mit Timer: Spulen aus dem Bestand einlegen, Dauer und optional Temperatur wählen
@@ -474,7 +491,7 @@ Sicherungen vor einer Wiederherstellung).
 Fehler und Ideen gerne als [Issue](https://github.com/Freaky-Jay-22/3d-printdash/issues). Weitere Sprachen
 lassen sich über `printdash/app/static/lang/` und `printdash/app/i18n.py` ergänzen.
 
-Fragen, Hilfe oder Lust, neue Drucker zu testen? Komm auf den [Discord-Server](https://discord.gg/nP3KDZavXr).
+Fragen, Hilfe oder Lust, neue Drucker zu testen? Komm auf den [Discord-Server](https://discord.gg/kBZ86GXGEA).
 
 ## Lizenz
 

@@ -38,7 +38,10 @@ DEFAULT_CONFIG = {
     # no entry = automatic (the printer's own webcam settings, e.g. from Moonraker)
     "camera_orient": {},
     # deduct_usage: subtract the filament of each print from the loaded spool (optional)
-    "filament": {"deduct_usage": False, "low_warn_g": 100},
+    # source: "own" inventory, "spoolman" (only shown, from Spoolman) or "sync" (kept equal with Spoolman)
+    # spoolman_prices: "spoolman" = prices per material come from Spoolman, "own" = set here
+    "filament": {"deduct_usage": False, "low_warn_g": 100, "source": "own", "spoolman_url": "",
+                 "spoolman_skip_klipper": False, "spoolman_prices": "spoolman"},
     "costs": {
         "currency": "",  # "" = automatic (browser region)
         "default_price_per_kg": 25,

@@ -886,7 +886,8 @@ function buildSlots(box, p) {
     // same as the compact card: one box, climate on top, spools below; the external spool after a divider
     box.append(el("div", { class: "fil-box" },
       climate.length ? el("div", { class: "fil-box-head" }, ...climate) : "",
-      p.filaments.length ? el("div", { class: "slot-row" }, ...p.filaments.map(tileOf)) : ""));
+      p.filaments.length ? el("div", { class: "slot-row" }, ...p.filaments.flatMap((f, i) =>
+        String(f.slot) === "Ext" && i ? [el("div", { class: "slot-sep" }), tileOf(f)] : [tileOf(f)])) : ""));
   }
   box.hidden = !box.childElementCount;
 }
@@ -1360,7 +1361,7 @@ const PRINTER_BRANDS = [["bambu", "Bambu Lab"], ["moonraker", "Klipper / Moonrak
 // models confirmed by us or by users (same list as in the README)
 const TESTED_PRINTERS = {
   bambu: ["X1C", "P1S", "P2S"],
-  moonraker: ["Snapmaker U1", "Qidi Q2"],
+  moonraker: ["Snapmaker U1", "Qidi Q2", "Elegoo Centauri Carbon (COSMOS)"],
   creality: ["K1C"],
 };
 const brandOf = (p) => (PRINTER_BRANDS.some(([k]) => k === p?.type) ? p.type : "other");
@@ -1524,7 +1525,7 @@ function showSettingsTab(tab) {
 
 /* about: version and links (GitHub, Discord, report a problem) */
 const REPO_URL = "https://github.com/Freaky-Jay-22/3d-printdash";
-const DISCORD_URL = "https://discord.gg/nP3KDZavXr";
+const DISCORD_URL = "https://discord.gg/kBZ86GXGEA";
 function aboutSection() {
   const link = (href, label, desc) => el("a", { class: "about-link", href, target: "_blank", rel: "noopener" },
     el("b", {}, label), el("span", { class: "note" }, desc));
@@ -1604,13 +1605,59 @@ function backupSection() {
 
 function filamentSettings() {
   const f = draft.filament = draft.filament || { deduct_usage: false, low_warn_g: 100 };
-  return el("div", { class: "pgroup" },
+  f.source = f.source || "own";
+  f.spoolman_prices = f.spoolman_prices || "spoolman";
+  const box = el("div", { class: "pgroup" });
+  const render = () => box.replaceChildren(
     el("h4", { class: "sub-head" }, t("Bestand")),
     el("div", { class: "fields" },
-      field(t("Verbrauch nach jedem Druck vom Bestand abziehen"), f, "deduct_usage", { type: "checkbox",
+      field(t("Filamentbestand führen in"), f, "source", { wide: true, onchange: render, options: [
+        ["own", t("3D-PrintDash (eigener Bestand)")],
+        ["sync", t("Abgleich mit Spoolman (beide gleich halten)")],
+        ["spoolman", t("Spoolman (nur anzeigen)")]],
+        hint: f.source === "spoolman"
+          ? t("Die Spulen kommen aus Spoolman und werden hier nur angezeigt. 3D-PrintDash zieht nichts ab, das macht Spoolman (z. B. über Moonraker). Dein eigener Bestand bleibt gespeichert, falls du zurückwechselst.")
+          : f.source === "sync"
+            ? t("Spulen aus Spoolman erscheinen hier, neue Spulen von hier kommen nach Spoolman. Verschieben, Ändern und der Verbrauch nach jedem Druck werden in Spoolman übernommen. Was es bisher nur hier gibt, kannst du unter Filament nach Spoolman übertragen.")
+            : t("Spoolman ist eine eigene App zur Spulenverwaltung. Nutzt du sie schon, kannst du sie hier verbinden.") }),
+      f.source !== "own" ? spoolmanUrlField(f) : null,
+      f.source !== "own" ? field(t("Preise"), f, "spoolman_prices", { wide: true, onchange: render, options: [
+        ["spoolman", t("Preise aus Spoolman übernehmen")],
+        ["own", t("Preise in 3D-PrintDash festlegen")]],
+        hint: (f.spoolman_prices || "spoolman") === "spoolman"
+          ? t("Jedes Material bekommt den Preis pro kg aus Spoolman (Durchschnitt, wenn mehrere Filamente dasselbe Material haben). Änderungen hier unter „Materialpreise“ werden beim nächsten Abgleich überschrieben.")
+          : t("Es gilt deine Preisliste unter „Materialpreise“, aus Spoolman wird nichts übernommen.")
+            + (f.source === "sync" ? " " + t("Filamente in Spoolman ohne Preis bekommen deinen Preis.") : "") }) : null,
+      f.source === "sync" ? field(t("Verbrauch von Klipper-Druckern nicht an Spoolman melden"), f, "spoolman_skip_klipper", { type: "checkbox",
+        hint: t("Einschalten, wenn Moonraker selbst schon an Spoolman meldet – sonst wird doppelt abgezogen.") }) : null,
+      f.source === "spoolman" ? null : field(t("Verbrauch nach jedem Druck vom Bestand abziehen"), f, "deduct_usage", { type: "checkbox",
         hint: t("Zieht die Gramm laut Slicer von den Spulen ab, die während des Drucks aktiv waren (bei Abbruch anteilig). Eine neue Spule wird dabei zu „angefangen“. Funktioniert nur für Spulen, die im Bestand erfasst und im Drucker erkannt sind.") }),
       field(t("Als knapp markieren unter (g)"), f, "low_warn_g", { type: "number", placeholder: "100",
         hint: t("Angefangene Spulen mit weniger Restgewicht werden im Bestand markiert. 0 = aus.") })));
+  render();
+  return box;
+}
+
+// Spoolman address with a connection test
+function spoolmanUrlField(f) {
+  const out = el("small", {});
+  const test = el("button", { class: "btn", type: "button", onclick: async () => {
+    out.textContent = t("Prüfe …");
+    out.className = "";
+    try {
+      const r = await api("api/spoolman/check", { method: "POST", json: { url: f.spoolman_url || "" } });
+      out.replaceChildren(sym("check", { state: "ok" }), " ", t("Verbunden – Spoolman {0}, {1}", r.version, tn(r.spools, "{0} Spule", "{0} Spulen")));
+      out.className = "ok";
+    } catch (e) {
+      out.replaceChildren(sym("close", { state: "bad" }), " ", e.message);
+      out.className = "bad";
+    }
+  } }, t("Verbindung testen"));
+  const input = el("input", { value: f.spoolman_url || "", placeholder: "http://192.168.1.10:7912", autocomplete: "off" });
+  input.addEventListener("input", () => { f.spoolman_url = input.value.trim(); });
+  return el("label", { class: "field wide" }, t("Adresse von Spoolman"),
+    el("div", { class: "inline-row" }, input, test),
+    el("small", {}, t("Mit Port, wie du Spoolman im Browser öffnest. Übernommen wird mit «Speichern» unten.")), out);
 }
 
 function priceSection() {
@@ -1648,6 +1695,8 @@ function priceSection() {
     el("div", { class: "dialog-head" }, el("h3", {}, t("Materialpreise")),
       el("button", { class: "icon-btn", value: "close", "aria-label": t("Schliessen") }, sym("close"))),
     el("p", { class: "hint" }, t("Preis pro kg je Material. Varianten wie „PLA Basic“ oder „PETG HF“ zählen zum Grundmaterial, „PETG CF“ zu PETG-CF. Alles andere nutzt den Standardpreis. Neue Materialien unter Filament → Marken erscheinen hier automatisch. Die Kosten werden beim Druckende gespeichert.")),
+    ...((draft.filament?.source || "own") !== "own" && (draft.filament?.spoolman_prices || "spoolman") === "spoolman"
+      ? [el("p", { class: "hint warn" }, t("Preise kommen aus Spoolman: Materialien mit Preis in Spoolman werden beim nächsten Abgleich überschrieben. Selbst festlegen: unter „Bestand“ bei „Preise“ umstellen."))] : []),
     list,
     el("div", { class: "row-btns" },
       el("button", { class: "btn", type: "button", onclick: () => { rows.push({ name: "", price: c.default_price_per_kg }); render(); $$("input", list).at(-2)?.focus(); } }, t("+ Material")),
@@ -2529,6 +2578,7 @@ function itemGrams(it) {
 async function loadFilament() {
   clearTimeout(filTimer);
   try {
+    if (filData?.spoolman && filData.spoolman.source !== "own") await api("api/spoolman/sync", { method: "POST" }).catch(() => {});
     filData = await api("api/filament");
     filData._clientOffset = Date.now() / 1000 - (filData.now || Date.now() / 1000);
     if (climate === null) climate = await api("api/ha/climate").catch(() => ({ available: false, temperature: [], humidity: [] }));
@@ -2584,15 +2634,18 @@ function renderFilament() {
     stat(Object.values(d.in_printer || {}).reduce((n, l) => n + l.length, 0), t("im Drucker"), sym("printer")),
     ...((d.dryers || []).length ? [stat(Object.values(d.in_dryer || {}).flat().reduce((n, x) => n + x.qty, 0), t("im Trockner"), sym("dryer"))] : []),
     ...(value ? [stat(fmtMoney(value, lastState?.costs?.currency, 0), t("Wert"), sym("coins"))] : []),
-    el("button", { class: "btn primary", style: "align-self:center", onclick: () => openSpoolDialog({ location: firstLocId() }) }, t("+ Filament")));
+    ...(readOnlyFil() ? [] : [el("button", { class: "btn primary", style: "align-self:center", onclick: () => openSpoolDialog({ location: firstLocId() }) }, t("+ Filament"))]));
 
   renderBrandLegend($("#filament-legend"));
   const wrap = $("#filament-locations");
   wrap.innerHTML = "";
+  const banner = spoolmanBanner();
+  $("#spoolman-banner")?.remove();
+  if (banner) wrap.before(banner);
   wrap.append(printerPanel());
   wrap.append(dryerPanel());
   shownLocs().forEach((loc, idx) => wrap.append(locationPanel(loc, idx)));
-  wrap.append(el("div", { class: "row-btns" }, el("button", { class: "btn", onclick: async () => {
+  if (!readOnlyFil()) wrap.append(el("div", { class: "row-btns" }, el("button", { class: "btn", onclick: async () => {
     const name = prompt(t("Name des neuen Lagerorts"));
     if (!name || !name.trim()) return;
     try { await api("api/filament/locations", { method: "POST", json: { name: name.trim() } }); loadFilament(); }
@@ -2639,16 +2692,18 @@ function renderBrands() {
         el("h3", {}, b.name),
         el("span", { class: "note" }, tn(usage(b), "{0} Spule im Bestand", "{0} Spulen im Bestand")),
         el("span", { class: "spacer" }),
-        el("button", { class: "icon-btn", title: t("Bearbeiten"), "aria-label": t("Bearbeiten"), onclick: () => openBrandDialog(b) }, sym("pencil")),
-        el("button", { class: "icon-btn", title: t("Löschen"), "aria-label": t("Löschen"), onclick: async () => {
-          if (!confirm(t("Marke „{0}“ löschen? Der Bestand bleibt erhalten.", b.name))) return;
-          try { await api(`api/filament/brands/${b.id}`, { method: "DELETE" }); loadFilament(); } catch (e) { toast(e.message, "bad"); }
-        } }, sym("trash"))),
+        // pencil and bin stay together on the right, also with a long name
+        el("span", { class: "brand-btns" },
+          el("button", { class: "icon-btn", title: t("Bearbeiten"), "aria-label": t("Bearbeiten"), onclick: () => openBrandDialog(b) }, sym("pencil")),
+          el("button", { class: "icon-btn", title: t("Löschen"), "aria-label": t("Löschen"), onclick: async () => {
+            if (!confirm(t("Marke „{0}“ löschen? Der Bestand bleibt erhalten.", b.name))) return;
+            try { await api(`api/filament/brands/${b.id}`, { method: "DELETE" }); loadFilament(); } catch (e) { toast(e.message, "bad"); }
+          } }, sym("trash")))),
       el("div", { class: "sub" }, t("Spule {0} g{1}", b.spool_g, b.note ? " · " + b.note : "")),
       b.materials.length ? el("div", { class: "chips" }, b.materials.map((m) => el("span", { class: "chip" }, m))) : null,
       b.colors.length ? el("div", { class: "swatches" }, b.colors.map((c) => el("span", { class: "cswatch", title: [c.name, c.material].filter(Boolean).join(" · ") },
         spoolIcon(c.color, { size: 22 }), el("span", {}, c.name || c.color)))) : null,
-      el("div", { class: "row-btns" }, el("button", { class: "btn", onclick: () => openSpoolDialog({ brand: b.name, location: firstLocId() }) }, t("+ Filament dieser Marke"))))))
+      readOnlyFil() ? null : el("div", { class: "row-btns" }, el("button", { class: "btn", onclick: () => openSpoolDialog({ brand: b.name, location: firstLocId() }) }, t("+ Filament dieser Marke"))))))
   ].filter(Boolean));
 }
 
@@ -2802,8 +2857,8 @@ function locationPanel(loc, idx) {
   const list = el("div", { class: "spools" });
   if (!items.length) list.append(el("div", { class: "note", style: "padding:8px 2px" }, t("Noch kein Filament erfasst.")));
   for (const it of items) list.append(spoolRow(it));
-  panel.append(list, el("div", { class: "row-btns" },
-    el("button", { class: "btn", onclick: () => openSpoolDialog({ location: key }) }, t("+ Filament"))));
+  panel.append(list, ...(readOnlyFil() ? [] : [el("div", { class: "row-btns" },
+    el("button", { class: "btn", onclick: () => openSpoolDialog({ location: key }) }, t("+ Filament")))]));
   return panel;
 }
 
@@ -2917,7 +2972,7 @@ function printerPanel() {
               f.active ? el("span", { class: "badge printing mini" }, t("druckt gerade")) : null,
               el("span", { class: "note" }, t("zurück nach: {0}", home))),
             assignSelect(pr, f)),
-          el("button", { class: "icon-btn", title: t("Bearbeiten"), "aria-label": t("Bearbeiten"), onclick: () => openSpoolDialog(item) }, sym("pencil"))));
+          readOnlyFil() ? null : el("button", { class: "icon-btn", title: t("Bearbeiten"), "aria-label": t("Bearbeiten"), onclick: () => openSpoolDialog(item) }, sym("pencil"))));
       } else {
         const add = () => openSpoolDialog({ location: firstLocId(true), material: (f.type || "").split(" ")[0],
           color: f.color || "#cccccc", uid: f.uid || "", count: 1, condition: "angefangen" });
@@ -2928,7 +2983,7 @@ function printerPanel() {
             el("div", { class: "sub" }, t("{0}nicht im Bestand{1}", f.manual ? t("von Hand: ") : "", f.uid ? t(" · Kennung {0}", f.uid) : "")),
             el("div", { class: "loaded-badges" }, el("span", { class: "loaded-badge" }, sym("printer"), ` ${where}`)),
             filData.items.length ? assignSelect(pr, f) : null),
-          el("button", { class: "btn", onclick: add }, t("Erfassen"))));
+          readOnlyFil() ? null : el("button", { class: "btn", onclick: add }, t("Erfassen"))));
       }
     }
     cnt.textContent = ` · ${tn(n - before, "{0} Spule", "{0} Spulen")}`;
@@ -3004,7 +3059,9 @@ function spoolRow(it) {
         // important: remaining weight; less important: colour code (only when there is no colour name) and note
         it.condition === "angefangen" && it.remaining_g != null ? el("b", { class: "remain" }, `≈ ${Math.round(it.remaining_g)} g`) : null,
         it.color_name ? el("span", { class: "cname" }, it.color_name) : (it.color ? el("span", { class: "hex" }, it.color) : null),
-        it.note ? el("span", { class: "snote" }, it.note) : null),
+        it.note ? el("span", { class: "snote" }, it.note) : null,
+        filData.spoolman?.source === "sync" && !it.spoolman_id
+          ? el("span", { class: "badge mini", title: t("Diese Spule gibt es noch nicht in Spoolman") }, t("nur hier")) : null),
       inPrinter.length || inDryer || it.dried_at || it.return_to ? el("div", { class: "loaded-badges" },
         it.return_to ? el("span", { class: "note", title: t("Kommt an diesen Ort zurück, wenn du die Spule bei laufendem Drucker aus dem AMS nimmst.") },
           sym("returnTo"), " ", t("aus {0}", locName(locById(it.return_to)))) : null,
@@ -3012,16 +3069,54 @@ function spoolRow(it) {
         inDryer ? el("span", { class: "loaded-badge dry" }, t("+ {0} im Trockner", inDryer)) : null,
         it.dried_at ? el("span", { class: "note", title: fmtDate(it.dried_at) }, sym("dryer"), " ", t("getrocknet {0}", driedAgo(it.dried_at))) : null) : null,
       moveBox),
-    el("div", { class: "counter" },
+    // a Spoolman spool is always one spool; read-only (from Spoolman): nothing to change here
+    readOnlyFil() || it.spoolman_id ? null : el("div", { class: "counter" },
       el("button", { class: "icon-btn", "aria-label": t("weniger"), onclick: () => save({ count: Math.max(0, (Number(it.count) || 0) - 1) }) }, "−"),
       el("b", { title: inPrinter.length ? t("{0} insgesamt, {1} im Drucker", it.count, inPrinter.length) : "" }, String(here)),
       el("button", { class: "icon-btn", "aria-label": t("mehr"), onclick: () => save({ count: (Number(it.count) || 0) + 1 }) }, "+")),
-    move,
-    el("button", { class: "icon-btn", title: t("Bearbeiten"), "aria-label": t("Bearbeiten"), onclick: () => openSpoolDialog(it) }, sym("pencil")),
-    el("button", { class: "icon-btn", title: t("Löschen"), "aria-label": t("Löschen"), onclick: async () => {
-      if (!confirm(t("Eintrag löschen?"))) return;
+    readOnlyFil() ? null : move,
+    readOnlyFil() ? null : el("button", { class: "icon-btn", title: t("Bearbeiten"), "aria-label": t("Bearbeiten"), onclick: () => openSpoolDialog(it) }, sym("pencil")),
+    readOnlyFil() ? null : el("button", { class: "icon-btn", title: t("Löschen"), "aria-label": t("Löschen"), onclick: async () => {
+      if (!confirm(it.spoolman_id ? t("Spule löschen? In Spoolman wird sie archiviert.") : t("Eintrag löschen?"))) return;
       await api(`api/filament/items/${it.id}`, { method: "DELETE" }); loadFilament();
     } }, sym("trash")));
+}
+
+const readOnlyFil = () => !!filData?.read_only;
+
+// Spoolman linked: where the spools come from, comparison, first-start choice
+function spoolmanBanner() {
+  const sm = filData?.spoolman;
+  if (!sm || sm.source === "own") return null;
+  const run = async (path, msg) => {
+    try { const r = await api(path, { method: "POST" }); if (msg) toast(msg(r), "ok"); loadFilament(); }
+    catch (e) { toast(e.message, "bad"); }
+  };
+  const open = sm.url ? el("a", { class: "btn", href: sm.url, target: "_blank", rel: "noopener" }, t("Spoolman öffnen")) : null;
+  const sync = el("button", { class: "btn", onclick: () => run("api/spoolman/sync") }, t("Jetzt abgleichen"));
+  const text = sm.source === "spoolman"
+    ? t("Bestand aus Spoolman – hier nur angezeigt. Spulen änderst du in Spoolman.")
+    : t("Abgleich mit Spoolman: Änderungen hier kommen nach Spoolman und umgekehrt.");
+  const box = el("div", { id: "spoolman-banner", class: `spoolman-banner${sm.ok === false ? " warn" : ""}` },
+    el("div", { class: "sm-line" }, el("span", { class: "sm-text" }, sym("spool"), " ", text),
+      sm.last ? el("span", { class: "note" }, t("abgeglichen {0}", fmtClockTs(sm.last))) : null,
+      el("span", { class: "spacer" }), open, sync));
+  if (sm.ok === false && sm.error) box.append(el("div", { class: "sm-line bad" }, sym("warning", { state: "warn" }), " ",
+    t("Spoolman nicht erreichbar: {0}", sm.error)));
+  if (sm.source === "sync" && sm.local_only > 0) {
+    box.append(el("div", { class: "sm-line" },
+      el("span", {}, tn(sm.local_only, "{0} Spule gibt es nur in 3D-PrintDash.", "{0} Spulen gibt es nur in 3D-PrintDash.")),
+      el("span", { class: "spacer" }),
+      el("button", { class: "btn primary", onclick: () => {
+        if (confirm(t("Alle Spulen, die es nur hier gibt, in Spoolman anlegen?")))
+          run("api/spoolman/export", (r) => tn(r.exported, "{0} Spule nach Spoolman übertragen", "{0} Spulen nach Spoolman übertragen"));
+      } }, t("Nach Spoolman übertragen")),
+      el("button", { class: "btn", onclick: () => {
+        if (confirm(t("Bestand aus Spoolman übernehmen? Spulen, die es nur hier gibt, werden entfernt. Eine Sicherung bleibt im Datenordner.")))
+          run("api/spoolman/adopt", (r) => tn(r.removed, "{0} Spule entfernt", "{0} Spulen entfernt"));
+      } }, t("Aus Spoolman übernehmen"))));
+  }
+  return box;
 }
 
 // dropdown with an "other…" entry that switches to free text

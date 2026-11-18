@@ -27,6 +27,12 @@ def t(text: str, **kw) -> str:
 
 MESSAGES = {
     "en": {
+        # Spoolman link
+        "Bitte die Adresse von Spoolman eintragen": "Please enter the Spoolman address",
+        "Nur im Modus «Abgleich» möglich": "Only possible in \"sync\" mode",
+        "Der Bestand kommt aus Spoolman und wird dort geändert": "The inventory comes from Spoolman and is changed there",
+        "Hier gespeichert, aber Spoolman meldet: {error}": "Saved here, but Spoolman reports: {error}",
+        "Spoolman nicht erreichbar: {error}": "Spoolman not reachable: {error}",
         # storage locations of a Bambu printer (AMS / external spool)
         "{printer} (AMS)": "{printer} (AMS)",
         "{printer} (extern)": "{printer} (external)",

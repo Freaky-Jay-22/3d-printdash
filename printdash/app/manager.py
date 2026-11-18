@@ -5,7 +5,7 @@ import re
 import time
 
 from . import config as config_store
-from . import costs, filament, ha, history, i18n, maintenance, notify, rooms, system, timelapse
+from . import costs, filament, ha, history, i18n, maintenance, notify, rooms, spoolman, system, timelapse
 from .i18n import t
 from .camera import CameraHub, clean_orient
 from .printers import ACTIVE_STATES, create
@@ -61,14 +61,17 @@ class Manager:
     # -- lifecycle -------------------------------------------------------
     async def start(self):
         history.init()
+        spoolman.apply_mode(self.cfg)
         await asyncio.to_thread(filament.ensure_printer_locations, self.cfg.get("printers", []))
         await self._build()
         self._task = asyncio.create_task(self._loop())
         self._power_task = asyncio.create_task(self._power_loop())
         self._dryer_task = asyncio.create_task(self._dryer_loop())
+        self._spoolman_task = asyncio.create_task(self._spoolman_loop())
 
     async def shutdown(self):
-        for task in (self._task, self._power_task, getattr(self, "_dryer_task", None)):
+        for task in (self._task, self._power_task, getattr(self, "_dryer_task", None),
+                     getattr(self, "_spoolman_task", None)):
             if task:
                 task.cancel()
         await self._teardown()
@@ -101,6 +104,7 @@ class Manager:
         self._ams_state = {}  # printers reconnect now; this is no "switched off"
         self.cfg = new_cfg
         i18n.set_lang(new_cfg)
+        spoolman.apply_mode(new_cfg)
         await self._build()
 
     # -- cameras ---------------------------------------------------------
@@ -670,6 +674,8 @@ class Manager:
                 deducted = await self._deduct_usage(printer, st, mats, grams, slots or set())
             except Exception:  # noqa: BLE001
                 log.exception("Filament usage")
+        if spoolman.settings(self.cfg)["source"] != "own":
+            asyncio.create_task(self._spoolman_after_print())
         energy_kwh, energy_cost = await self._energy_used(printer.id, job_id)
         history.end_job(job_id, status, st.get("error"), image,
                         preview=meta.get("thumb"), preview_type=meta.get("thumb_type", "image/png"),
@@ -819,6 +825,9 @@ class Manager:
                 rec = await asyncio.to_thread(filament.use_filament, f["item_id"], g / len(use), printer.id, f)
                 if not rec:
                     continue
+                # Spoolman (sync mode): the same grams there – unless Moonraker already reports to Spoolman
+                if not (printer.type == "moonraker" and spoolman.settings(self.cfg)["skip_klipper"]):
+                    await asyncio.to_thread(spoolman.use, self.cfg, rec["item_id"], rec["g"])
                 rec["slot"] = f.get("slot")
                 done.append(rec)
                 if low and rec["before"] >= low > rec["left"] and (self.cfg.get("notify") or {}).get("on_low_filament", True):
@@ -829,6 +838,25 @@ class Manager:
         if done:
             log.info("%s: filament used %s", printer.name, ", ".join(f"{d['label']} {d['g']} g" for d in done))
         return done
+
+    # -- Spoolman (optional) ------------------------------------------------
+    async def _spoolman_after_print(self):
+        """Right after a print: compare with Spoolman, so the remaining weights are current at once.
+        A short wait first, because Moonraker may report the usage to Spoolman itself a moment later."""
+        await asyncio.sleep(15)
+        try:
+            await asyncio.to_thread(spoolman.sync, self.cfg)
+        except Exception:  # noqa: BLE001
+            log.exception("Spoolman")
+
+    async def _spoolman_loop(self):
+        while True:
+            try:
+                if spoolman.settings(self.cfg)["source"] != "own":
+                    await asyncio.to_thread(spoolman.sync, self.cfg)
+            except Exception:  # noqa: BLE001
+                log.exception("Spoolman")
+            await asyncio.sleep(60)
 
     # -- filament dryers ----------------------------------------------------
     async def _dryer_loop(self):

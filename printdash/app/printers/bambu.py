@@ -24,6 +24,7 @@ import paho.mqtt.client as mqtt
 
 from ..i18n import t
 from .base import BasePrinter, PrinterError
+from .bambu_hints import ERROR_HINTS, HMS_HINTS
 
 log = logging.getLogger("printdash.bambu")
 
@@ -55,7 +56,7 @@ def is_prompt(code):
     """True when a print_error code is only an instruction / question to the user.
     Note: the same low code from an AMS unit (e.g. 0700_8007 "extruding failed") is a real error."""
     unit, low = code >> 16, code & 0xFFFF
-    if code in PROMPT_ERRORS:
+    if code in PROMPT_ERRORS or code in ERROR_HINTS:
         return True
     if unit in SPOOL_HOLDERS and low in SPOOL_HOLDER_PROMPTS:
         return True
@@ -80,6 +81,8 @@ HMS_STATUS_ONLY = {
 }
 HMS_STATUS_PATTERNS = [
     re.compile(r"(07|12|18)F[EF]_2000_0002_0004"),           # unloading: "Please pull the external filament from the extruder"
+    re.compile(r"(07|12|18)F[EF]_2000_0002_0002"),           # loading: "External filament is missing; please load a new filament"
+    re.compile(r"(07|12|18)F[EF]_7000_0002_0003"),           # loading: "Check if the filament comes out of the nozzle … try again"
     re.compile(r"(07|18)0[0-7]_5600_0003_0001"),             # AMS drying: cooling down, please wait
     re.compile(r"(07|18)0[0-7]_2[0-3]00_0003_0001"),         # slot empty, backup spool: purging old filament
     re.compile(r"120[0-3]_2[0-3]00_0003_0001"),              # same for AMS lite
@@ -87,7 +90,7 @@ HMS_STATUS_PATTERNS = [
 
 
 def hms_status_only(c):
-    return c in HMS_STATUS_ONLY or any(p.fullmatch(c) for p in HMS_STATUS_PATTERNS)
+    return c in HMS_STATUS_ONLY or c in HMS_HINTS or any(p.fullmatch(c) for p in HMS_STATUS_PATTERNS)
 
 
 GCODE_STATE_MAP = {

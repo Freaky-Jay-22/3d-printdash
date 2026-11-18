@@ -4,7 +4,7 @@
 
 **English** · [Deutsch](README.de.md)
 
-[![Discord](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/nP3KDZavXr)
+[![Discord](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/kBZ86GXGEA)
 
 A local dashboard for your 3D printers. 3D-PrintDash runs as an app (formerly "add-on") in Home Assistant
 or as a Docker container and talks to your printers directly on your network – no cloud and no
@@ -36,7 +36,7 @@ for the Klipper printer, a spreadsheet or notes for your filament, and Home Assi
 - **Printing:** upload and start files, for Bambu printers with plate selection and AMS mapping
 - **History** of all prints with final image, duration, filament usage and cost
 - **Filament management:** inventory by storage location, brands, detection of loaded spools, optional
-  usage tracking, low-stock warning, dryer timers
+  usage tracking, low-stock warning, dryer timers, optional link to Spoolman
 - **Maintenance reminders** for cleaning and lubrication per printer
 - **Statistics** per month, printer and material, CSV export
 - **Backup** and restore, import from another installation
@@ -96,10 +96,10 @@ for the Klipper printer, a spreadsheet or notes for your filament, and Home Assi
 | Printer | Connection | Notes |
 |---|---|---|
 | **Bambu Lab printers** | LAN (MQTT, FTPS) | Camera: video stream on the X1, P2 and H2 series, still images on P1 and A1. For control see below. |
-| **Klipper printers with Moonraker** | HTTP API | e.g. Voron, Sovol, Snapmaker U1, Qidi Q2. Multiple toolheads and the Qidi Box are supported. |
+| **Klipper printers with Moonraker** | HTTP API | e.g. Voron, Sovol, Snapmaker U1, Qidi Q2, Elegoo Centauri Carbon with COSMOS firmware. Multiple toolheads and the Qidi Box are supported. |
 | **Creality K1 series** *(experimental)* | Websocket | Stock firmware, no root needed. Status, temperatures, camera (also WebRTC or via Home Assistant), pause/stop, light and history. No file upload yet. Rooted with Moonraker: use "Klipper". |
 
-So far 3D-PrintDash has been tested with Bambu Lab X1C and P1S, a Snapmaker U1 and (by users) a Bambu Lab P2S and a Qidi Q2.
+So far 3D-PrintDash has been tested with Bambu Lab X1C and P1S, a Snapmaker U1 and (by users) a Bambu Lab P2S, a Qidi Q2 and an Elegoo Centauri Carbon with COSMOS firmware.
 Feedback about other models is welcome.
 
 ## Installation
@@ -332,6 +332,22 @@ with **"Add"**.
 - **Low stock:** opened spools below a set weight (default 100 g) are marked "low" and you get a
   notification (can be switched off).
 
+### Spoolman (optional)
+
+Already using [Spoolman](https://github.com/Donkie/Spoolman)? Connect it under Settings → Filament & prices
+→ "Keep the filament inventory in" and enter its address (e.g. `http://192.168.1.10:7912`):
+
+- **3D-PrintDash** (default): own inventory, Spoolman is not used.
+- **Sync with Spoolman:** both inventories stay equal. Spools from Spoolman appear here, new spools from
+  here go to Spoolman, moves and edits too, and the usage after each print is subtracted in Spoolman.
+  Spools that only exist here can be transferred to Spoolman once, or replaced by Spoolman's inventory.
+  If Moonraker already reports to Spoolman, switch off reporting for Klipper printers to avoid double counting.
+- **Spoolman (show only):** the spools come from Spoolman and are only shown. 3D-PrintDash subtracts
+  nothing. Your own inventory stays saved for when you switch back.
+
+In both Spoolman modes, brands (with materials, colours and spool weight) are taken over from Spoolman.
+Under "Prices" you choose whether the material prices come from Spoolman or are set in 3D-PrintDash.
+
 ### Dryers
 
 Up to 4 dryers with a timer: load spools from the inventory, choose duration and optionally temperature
@@ -464,7 +480,7 @@ Everything is stored in the app's data folder (`/data`): `config.json` (settings
 Bugs and ideas are welcome as an [issue](https://github.com/Freaky-Jay-22/3d-printdash/issues). More
 languages can be added in `printdash/app/static/lang/` and `printdash/app/i18n.py`.
 
-Questions, help or want to test new printers? Join the [Discord server](https://discord.gg/nP3KDZavXr).
+Questions, help or want to test new printers? Join the [Discord server](https://discord.gg/kBZ86GXGEA).
 
 ## License
 

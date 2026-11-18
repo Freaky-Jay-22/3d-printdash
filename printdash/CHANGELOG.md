@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.3.12
+
+**English**
+- New: **Spoolman** integration (Settings → Filament & prices) with three modes:
+  - **3D-PrintDash** – own inventory as before, no Spoolman
+  - **Sync with Spoolman** – both inventories are kept the same; usage after each print is subtracted in Spoolman too
+  - **Spoolman (show only)** – the spools come from Spoolman, 3D-PrintDash subtracts nothing
+  - Brands are taken over from Spoolman; prices come from Spoolman or are set here (your choice)
+- Minor adjustments to the new UI
+- Fix: Bambu – instructions and status messages (e.g. loading the external spool, drying, calibration) are no longer reported as errors
+- Tested: Elegoo Centauri Carbon with COSMOS firmware (via Klipper/Moonraker)
+
+**Deutsch**
+- Neu: **Spoolman**-Anbindung (Einstellungen → Filament & Preise) mit drei Modi:
+  - **3D-PrintDash** – eigener Bestand wie bisher, ohne Spoolman
+  - **Abgleich mit Spoolman** – beide Bestände bleiben gleich; der Verbrauch nach jedem Druck wird auch in Spoolman abgezogen
+  - **Spoolman (nur anzeigen)** – die Spulen kommen aus Spoolman, 3D-PrintDash zieht nichts ab
+  - Marken werden aus Spoolman übernommen; Preise kommen wahlweise aus Spoolman oder werden hier festgelegt
+- Kleine Anpassungen an der neuen Oberfläche
+- Behoben: Bambu – Anweisungen und Statusmeldungen (z. B. Laden der externen Spule, Trocknen, Kalibrieren) gelten nicht mehr als Fehler
+- Getestet: Elegoo Centauri Carbon mit COSMOS-Firmware (über Klipper/Moonraker)
+
 ## 0.3.11
 
 **English**

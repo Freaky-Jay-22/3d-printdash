@@ -232,7 +232,7 @@ body.detail-open { overflow: hidden; }
 .detail-cams { display: grid; gap: 10px; grid-template-columns: 1fr; }
 .detail-cams .cam { width: 100%; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); }
 .detail-cams .cam-label { font-size: 13px; left: 10px; bottom: 10px; }
-.detail-side { columns: 2 360px; column-gap: 12px; }
+.detail-side { columns: 2 360px; column-gap: 14px; }
 /* layout switch in the header */
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .seg-btn { background: var(--panel); color: var(--muted); border: 0; padding: 6px 11px; font-size: 15px; cursor: pointer; line-height: 1; }
@@ -382,7 +382,10 @@ body.detail-open { overflow: hidden; }
 .brands-head .note { margin: 0; max-width: 60ch; }
 .brand-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
 .brand-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
-.brand-card header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.brand-card header { display: flex; align-items: center; gap: 8px; }
+.brand-card header h3 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brand-card header .note { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brand-card .brand-btns { display: inline-flex; gap: 2px; flex: none; }
 .brand-card h3 { margin: 0; font-size: 16px; }
 .brand-card .sub { color: var(--muted); font-size: 13px; }
 .brand-card .spacer { flex: 1; }
@@ -626,17 +629,17 @@ a.btn { text-decoration: none; }
 .ovl-left, .ovl-right { position: absolute; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 8px; }
 .ovl-left { left: 10px; } .ovl-right { right: 10px; }
 .ovl-chip { display: inline-flex; align-items: baseline; gap: 5px; padding: 5px 10px; border-radius: 999px; font-variant-numeric: tabular-nums;
-  background: rgba(15, 17, 21, .72); color: #f2f4f7; backdrop-filter: blur(6px); border: 1px solid rgba(255, 255, 255, .12); font-size: 13px; }
-.ovl-chip small { color: rgba(242, 244, 247, .65); font-size: 11px; }
+  background: rgba(15, 17, 21, .38); color: #f2f4f7; border: 1px solid rgba(255, 255, 255, .14); text-shadow: 0 1px 2px rgba(0, 0, 0, .9); font-size: 13px; }
+.ovl-chip small { color: rgba(242, 244, 247, .8); font-size: 11px; }
 .ovl-chip b { font-weight: 650; }
 .ovl-chip.on { border-color: color-mix(in srgb, var(--accent) 70%, transparent); }
 .ovl-chip.bad b { color: #ff7b72; }
 .ovl-time { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); text-align: center; padding: 6px 14px; border-radius: 10px;
-  background: rgba(15, 17, 21, .78); color: #f2f4f7; border: 1px solid rgba(255, 255, 255, .12); backdrop-filter: blur(6px); }
+  background: rgba(15, 17, 21, .38); color: #f2f4f7; border: 1px solid rgba(255, 255, 255, .14); text-shadow: 0 1px 2px rgba(0, 0, 0, .9); }
 .ovl-time b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
-.ovl-time small { color: rgba(242, 244, 247, .65); font-size: 11px; }
+.ovl-time small { color: rgba(242, 244, 247, .8); font-size: 11px; }
 .ovl-layer { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); padding: 4px 12px; border-radius: 999px; font-size: 12.5px;
-  background: rgba(15, 17, 21, .78); color: #f2f4f7; border: 1px solid rgba(255, 255, 255, .12); font-family: var(--mono); }
+  background: rgba(15, 17, 21, .38); color: #f2f4f7; border: 1px solid rgba(255, 255, 255, .14); text-shadow: 0 1px 2px rgba(0, 0, 0, .9); font-family: var(--mono); }
 .printer-grid.detailed .card .slots { display: flex; flex-direction: column; gap: 10px; }
 .printer-grid.detailed .card .slots[hidden] { display: none; }
 .slot-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
@@ -655,16 +658,22 @@ a.btn { text-decoration: none; }
 }
 .ovl-left, .ovl-right { align-items: flex-start; }
 .ovl-right { align-items: flex-end; }
-/* detailed (wide screens): extra cameras as small pictures in the bottom-right corner of the main camera,
-   instead of a row below it (no empty grey area) */
+/* detailed (wide screens): extra cameras directly below the main camera (fills the space left of the taller
+   right column, covers nothing); remaining time in the bottom-right corner of the picture */
 @media (min-width: 901px) {
-  .printer-grid.detailed .card > .cam-extras { grid-row: 1; grid-column: 1; align-self: end; justify-self: end; z-index: 2;
-    display: flex; gap: 6px; padding: 0; margin: 0 10px 10px 0; background: none; }
+  .printer-grid.detailed .card { grid-template-rows: auto 1fr; }
+  .printer-grid.detailed .card > .cam { align-self: start; }
+  .printer-grid.detailed .card > .card-body { grid-row: 1 / span 2; }
+  /* the extra cameras fill the whole free area below the main camera (at least 140px high), picture letterboxed */
+  .printer-grid.detailed .card > .cam-extras { grid-row: 2; grid-column: 1; align-self: stretch; min-height: 140px;
+    display: grid; grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr)); gap: 6px; padding: 6px; background: none; }
+  .printer-grid.detailed .card > .cam-extras[data-count="2"] { --n: 2; }
+  .printer-grid.detailed .card > .cam-extras[data-count="3"] { --n: 3; }
+  .printer-grid.detailed .cam-extras .cam.mini { aspect-ratio: auto; min-height: 0; }
   .printer-grid.detailed .card > .cam-extras[hidden] { display: none; }
-  .printer-grid.detailed .cam-extras .cam.mini { width: clamp(120px, 14vw, 220px); border-radius: 8px; overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, .25); box-shadow: 0 4px 14px rgba(0, 0, 0, .45); }
-  .printer-grid.detailed .card { grid-template-rows: auto; }
-  .printer-grid.detailed .card > .card-body { grid-row: 1; }
+  .printer-grid.detailed .cam-extras .cam.mini { border-radius: 8px; overflow: hidden; border: 1px solid var(--line); }
+  .printer-grid.detailed .ovl-time { top: auto; bottom: 10px; left: auto; right: 10px; transform: none; text-align: right; }
+}
 }
 .slot-spool { display: flex; flex-direction: column; align-items: center; }
 .slot-row { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
@@ -726,11 +735,7 @@ details.fold:not([open]) { gap: 0; }
 .fil-ext { display: inline-flex; align-items: center; gap: 8px; padding-left: 14px; border-left: 1px solid var(--line); }
 .fil-ext small { color: var(--muted); font-size: 11.5px; }
 .slots .fil-box { gap: 10px; }
-.slot.ext { position: relative; margin-left: 10px; }
-.slot.ext::before { content: ""; position: absolute; left: -9px; top: 10%; bottom: 10%; border-left: 1px solid var(--line); }
 .slot small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.detail-side .slot.ext { margin-left: 0; }
-.detail-side .slot.ext::before { display: none; }
 
 /* ---------- phone (narrow screens) ---------- */
 .tab-ico { display: block; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
@@ -823,3 +828,25 @@ details.fold:not([open]) { gap: 0; }
 .sym.sym-ok { color: var(--ok); --sym-a: currentColor; }
 .sym.sym-active { color: var(--accent); --sym-a: currentColor; }
 .test-switch { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border, rgba(127,127,127,.2)); }
+
+/* Spoolman link: info bar above the filament locations */
+.spoolman-banner { display: flex; flex-direction: column; gap: 8px; padding: 10px 14px; margin: 0 0 16px;
+  border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: var(--radius); background: var(--panel); }
+.spoolman-banner.warn { border-left-color: var(--warn); }
+.spoolman-banner .sm-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.spoolman-banner .sm-line.bad { color: var(--warn); }
+.spoolman-banner .spacer { flex: 1; }
+.inline-row { display: flex; gap: 8px; align-items: center; }
+.inline-row input { flex: 1; min-width: 0; }
+small.ok { color: var(--ok); } small.bad { color: var(--bad); }
+
+/* details: the external spool in its own row below a divider line */
+.slot-row .slot-sep { grid-column: 1 / -1; height: 1px; background: var(--line); margin: 2px 0; }
+/* overview (detailed card): up to 4 slots + external spool in ONE row, external after a vertical line
+   (like the compact card), so the right column stays about as high as the camera */
+.printer-grid.detailed .slot-row:not(:has(> :nth-child(7))) { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); column-gap: 14px; }
+.printer-grid.detailed .slot-row:not(:has(> :nth-child(7))) > .slot-sep { display: none; }
+.printer-grid.detailed .slot-row:not(:has(> :nth-child(7))) > .slot.ext { position: relative; overflow: visible; }
+.printer-grid.detailed .slot-row:not(:has(> :nth-child(7))) > .slot.ext::before { content: ""; position: absolute; left: -8px; top: 6%; bottom: 6%; border-left: 2px solid color-mix(in srgb, var(--muted) 45%, transparent); }
+.printer-grid.detailed .slot .spool-icon, .printer-grid.detailed .slot .spool-icon svg { width: min(56px, 100%) !important; height: auto !important; aspect-ratio: 1; }
+.hint.warn { color: var(--warn); }

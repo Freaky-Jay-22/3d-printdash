@@ -10,6 +10,24 @@ from .config import DATA_DIR
 from .i18n import t
 
 PATH = os.path.join(DATA_DIR, "filament.json")
+# with Spoolman as the only source (see spoolman.py) the spools shown come from Spoolman and are kept in
+# their own file, so the own inventory stays as it was when switching back
+PATH_SPOOLMAN = os.path.join(DATA_DIR, "filament-spoolman.json")
+MODE = "own"   # "own" | "spoolman" (read only, from Spoolman) | "sync" (both kept equal)
+
+
+def set_mode(mode: str) -> None:
+    global MODE
+    MODE = mode if mode in ("own", "spoolman", "sync") else "own"
+
+
+def path() -> str:
+    return PATH_SPOOLMAN if MODE == "spoolman" else PATH
+
+
+def read_only() -> bool:
+    """Spools come from Spoolman and can only be changed there."""
+    return MODE == "spoolman"
 CONDITIONS = ("neu", "angefangen")   # stored values; the UI translates them
 
 # Storage locations are a free, ordered list. Older versions had three fixed
@@ -67,9 +85,9 @@ def load() -> dict:
 
 def _load() -> dict:
     with _lock:
-        if not os.path.exists(PATH):
+        if not os.path.exists(path()):
             return copy.deepcopy(DEFAULT)
-        with open(PATH, "r", encoding="utf-8") as fh:
+        with open(path(), "r", encoding="utf-8") as fh:
             data = json.load(fh)
     out = copy.deepcopy(DEFAULT)
     out["locations"] = _locations_from(data.get("locations"))
@@ -77,6 +95,8 @@ def _load() -> dict:
     out["assign"] = data.get("assign") or {}
     out["dryers"] = data.get("dryers") or []
     out["slot_memory"] = data.get("slot_memory") or {}
+    if data.get("spoolman_seen"):
+        out["spoolman_seen"] = data["spoolman_seen"]
     if "brands" in data:
         out["brands"] = data.get("brands") or []
     else:  # first start with brands: take over the brands already used in the inventory
@@ -116,10 +136,10 @@ def location(data: dict, loc_id: str) -> dict | None:
 def save(data: dict) -> None:
     with _lock:
         os.makedirs(DATA_DIR, exist_ok=True)
-        tmp = PATH + ".tmp"
+        tmp = path() + ".tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(data, fh, indent=2, ensure_ascii=False)
-        os.replace(tmp, PATH)
+        os.replace(tmp, path())
 
 
 def _num(value, default=None, minimum=None):
@@ -219,12 +239,17 @@ def delete_brand(brand_id: str) -> None:
 
 @_transaction
 def upsert(raw: dict) -> dict:
+    if read_only():
+        raise ValueError(t("Der Bestand kommt aus Spoolman und wird dort geändert"))
     data = load()
     item = clean_item(raw, location_ids(data))
     if not (location(data, item["location"]) or {}).get("printer_id"):
         item.pop("return_to", None)  # only spools parked in an AMS have an origin
     for i, existing in enumerate(data["items"]):
         if existing.get("id") == item["id"]:
+            if existing.get("spoolman_id"):  # linked to one Spoolman spool: stays one spool
+                item["spoolman_id"] = existing["spoolman_id"]
+                item["count"] = 1
             data["items"][i] = item
             break
     else:
@@ -234,10 +259,14 @@ def upsert(raw: dict) -> dict:
 
 
 @_transaction
-def delete(item_id: str) -> None:
+def delete(item_id: str) -> dict | None:
+    if read_only():
+        raise ValueError(t("Der Bestand kommt aus Spoolman und wird dort geändert"))
     data = load()
+    gone = next((i for i in data["items"] if i.get("id") == item_id), None)
     data["items"] = [i for i in data["items"] if i.get("id") != item_id]
     save(data)
+    return gone
 
 
 def _clean_location(loc: dict, values: dict) -> None:
@@ -464,6 +493,8 @@ def item_label(item: dict) -> str:
 def use_filament(item_id: str, grams: float, printer_id: str | None = None, fil: dict | None = None) -> dict | None:
     """Subtract used filament from one spool of an entry. A new spool becomes "angefangen";
     of several equal spools one is split off. Returns {item_id, label, g, before, left}."""
+    if read_only():
+        return None  # Spoolman keeps track of the usage
     data = load()
     item = next((i for i in data["items"] if i["id"] == item_id), None)
     if not item or not grams or grams <= 0 or int(item.get("count") or 0) <= 0:
@@ -569,6 +600,8 @@ _TWIN_KEYS = ("brand", "material", "color_name", "condition", "uid", "spool_g", 
 
 
 def _is_twin(a: dict, b: dict) -> bool:
+    if a.get("spoolman_id") or b.get("spoolman_id"):
+        return False  # each Spoolman spool stays its own entry
     return all((a.get(k) or "") == (b.get(k) or "") for k in _TWIN_KEYS) \
         and str(a.get("color") or "").lower() == str(b.get("color") or "").lower()
 
@@ -607,6 +640,8 @@ def _move_units(data: dict, item: dict, qty: int, to_loc: str, return_to: str | 
 @_transaction
 def move_item(item_id: str, to_loc: str, qty) -> dict:
     """Move some spools of an entry to another location (split / merge as needed)."""
+    if read_only():
+        raise ValueError(t("Der Bestand kommt aus Spoolman und wird dort geändert"))
     data = load()
     item = next((i for i in data["items"] if i["id"] == item_id), None)
     dest = location(data, to_loc)
@@ -632,7 +667,8 @@ def move_item(item_id: str, to_loc: str, qty) -> dict:
 def park_in_ams(printer_id: str, slot_items: dict) -> int:
     """Printer was switched off: spools detected in its AMS move to its AMS location,
     the spool on the external holder to its own location (or the AMS location if there is none).
-    slot_items = {slot: item_id}. Returns the number of spools moved."""
+    slot_items = {slot: item_id}. Returns the number of spools moved.
+    (Also with Spoolman as the only source: only here, Spoolman is not changed.)"""
     data = load()
     ams, ext = ams_location(data, printer_id), ext_location(data, printer_id)
     per_item = {}
