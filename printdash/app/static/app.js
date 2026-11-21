@@ -1963,15 +1963,15 @@ function roomItem(room) {
 }
 
 /* Bambu camera: directly from the printer, normally or in compatibility mode */
-/* automatic filament system of a Klipper printer (Qidi Box, Snapmaker U1 toolheads ...) */
-const FILAMENT_SYSTEMS = [["qidi_box", "Qidi Box"], ["snapmaker", "Snapmaker U1"]];
+/* automatic filament system of a Klipper printer (Qidi Box, Snapmaker U1 toolheads, AFC lanes ...) */
+const FILAMENT_SYSTEMS = [["qidi_box", "Qidi Box"], ["snapmaker", "Snapmaker U1"], ["afc", "AFC (Box Turtle, OpenCreator …)"]];
 function filamentSystemField(p) {
   const live = (lastState?.printers || []).find((x) => x.id === p.id);
   const found = live?.filament_system;
   const auto = found && (p.filament_system || "auto") === "auto"
     ? t("Automatisch erkennen (erkannt: {0})", found.name) : t("Automatisch erkennen");
   return field(t("Automatisches Filamentsystem"), p, "filament_system", {
-    options: [["auto", auto], ...FILAMENT_SYSTEMS, ["none", t("Keines")]],
+    options: [["auto", auto], ...FILAMENT_SYSTEMS.map(([k, n]) => [k, k === "afc" ? `${n} – ${t("experimentell")}` : n]), ["none", t("Keines")]],
     onchange: renderSettings, wide: true,
     hint: t("Zeigt, welche Spule in welchem Fach bzw. Werkzeugkopf steckt, und legt im Filament-Tab einen Lagerort dafür an. Spulen, die beim Ausschalten des Druckers darin stecken, werden dorthin verschoben; nimmst du eine bei laufendem Drucker heraus, kommt sie an ihren alten Ort zurück.") });
 }
@@ -2779,8 +2779,11 @@ function locationPanel(loc, idx) {
   const key = loc.id;
   const loadedN = (it) => (filData.in_printer?.[it.id] || []).length + dryerQty(it.id);
   const homeCount = (it) => Math.max(0, (Number(it.count) || 0) - loadedN(it));
-  // spools that are all in a printer / dryer are shown in those sections instead
-  const items = filData.items.filter((i) => i.location === key && !(loadedN(i) && homeCount(i) === 0))
+  // in a normal location, spools in a printer / dryer stay listed (dimmed, with where they are), so a spool
+  // the printer recognises does not seem to vanish; a printer's own AMS location lists only what is not
+  // shown above under "loaded in printers" already
+  const printerLoc = !!(loc.printer_id || loc.in_printer);
+  const items = filData.items.filter((i) => i.location === key && !(printerLoc && loadedN(i) && homeCount(i) === 0))
     .sort((a, b) => (a.material + a.brand + a.color_name).localeCompare(b.material + b.brand + b.color_name));
   const count = items.reduce((s, i) => s + homeCount(i), 0);
   const settings = el("div", { class: "loc-settings", hidden: true });
@@ -3047,7 +3050,7 @@ function spoolRow(it) {
       el("button", { class: "btn mini", type: "button", onclick: () => { moveBox.hidden = true; move.value = ""; } }, t("Abbrechen")));
     moveBox.hidden = false;
   });
-  return el("div", { class: `spool${Number(it.count) ? "" : " empty"}` },
+  return el("div", { class: `spool${Number(it.count) ? "" : " empty"}${Number(it.count) && here === 0 ? " away" : ""}` },
     spoolIcon(it.color, { size: 48, fill: it.condition === "angefangen" && it.remaining_g != null && it.spool_g
       ? Number(it.remaining_g) / Number(it.spool_g) : (it.condition === "angefangen" ? 0.55 : 1) }),
     el("div", { class: "spool-main" },
@@ -3065,12 +3068,15 @@ function spoolRow(it) {
       inPrinter.length || inDryer || it.dried_at || it.return_to ? el("div", { class: "loaded-badges" },
         it.return_to ? el("span", { class: "note", title: t("Kommt an diesen Ort zurück, wenn du die Spule bei laufendem Drucker aus dem AMS nimmst.") },
           sym("returnTo"), " ", t("aus {0}", locName(locById(it.return_to)))) : null,
-        inPrinter.length ? el("span", { class: "loaded-badge" }, t("+ {0} im Drucker geladen", inPrinter.length)) : null,
+        inPrinter.length ? el("span", { class: "loaded-badge", title: inPrinter.map((x) => `${x.printer} · ${slotName(x.slot)}`).join(", ") },
+          here === 0 && !inDryer
+            ? t("Im Drucker geladen: {0}", inPrinter.map((x) => `${x.printer} · ${slotName(x.slot)}`).join(", "))
+            : t("+ {0} im Drucker geladen", inPrinter.length)) : null,
         inDryer ? el("span", { class: "loaded-badge dry" }, t("+ {0} im Trockner", inDryer)) : null,
         it.dried_at ? el("span", { class: "note", title: fmtDate(it.dried_at) }, sym("dryer"), " ", t("getrocknet {0}", driedAgo(it.dried_at))) : null) : null,
       moveBox),
     // a Spoolman spool is always one spool; read-only (from Spoolman): nothing to change here
-    readOnlyFil() || it.spoolman_id ? null : el("div", { class: "counter" },
+    readOnlyFil() || it.spoolman_id ? null : Number(it.count) && here === 0 ? el("div", { class: "counter" }) : el("div", { class: "counter" },
       el("button", { class: "icon-btn", "aria-label": t("weniger"), onclick: () => save({ count: Math.max(0, (Number(it.count) || 0) - 1) }) }, "−"),
       el("b", { title: inPrinter.length ? t("{0} insgesamt, {1} im Drucker", it.count, inPrinter.length) : "" }, String(here)),
       el("button", { class: "icon-btn", "aria-label": t("mehr"), onclick: () => save({ count: (Number(it.count) || 0) + 1 }) }, "+")),
@@ -3141,6 +3147,34 @@ function pickOrType(options, value, { placeholder = "", other = t("Andere …"),
   return { node: wrap, fill };
 }
 
+// colour from a typed colour name ("Army Blue", "Dunkelrot", "Matte Black" ...): English and German words,
+// tones typical for filament; "dark"/"light" darken or lighten. null when no colour word is found.
+const COLOR_WORDS = {
+  black: "#1b1b1b", schwarz: "#1b1b1b", white: "#f4f4f4", weiss: "#f4f4f4", grey: "#8c8c8c", gray: "#8c8c8c",
+  grau: "#8c8c8c", silver: "#bfc3c7", silber: "#bfc3c7", red: "#d0312d", rot: "#d0312d", blue: "#1f5fbf",
+  blau: "#1f5fbf", navy: "#1f2f55", green: "#2e9b45", gruen: "#2e9b45", yellow: "#f2c500", gelb: "#f2c500",
+  orange: "#f07c12", purple: "#7a3db8", violet: "#7a3db8", violett: "#7a3db8", lila: "#9a5fc9", pink: "#ec6fa4",
+  rosa: "#f2a5c0", magenta: "#d0278a", brown: "#6e4a32", braun: "#6e4a32", beige: "#d8c39a", gold: "#c9a227",
+  bronze: "#a0692e", copper: "#b5653a", kupfer: "#b5653a", cyan: "#16b2c9", tuerkis: "#1fb3a6", turquoise: "#1fb3a6",
+  teal: "#13807a", olive: "#6b7a2a", oliv: "#6b7a2a", mint: "#8fd9b6", lime: "#9bcf2f", ivory: "#efe8d2",
+  cream: "#efe3c4", creme: "#efe3c4", natural: "#e6dfcc", natur: "#e6dfcc", transparent: "#e8eef0", clear: "#e8eef0",
+};
+function colorFromName(name) {
+  const words = String(name || "").toLowerCase().replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue")
+    .replace(/ß/g, "ss").split(/[^a-z]+/).filter(Boolean);
+  let hex = null, shade = 0;
+  for (const w of words) {
+    if (/^(dark|dunkel)/.test(w)) shade = -1; else if (/^(light|hell|pastel)/.test(w)) shade = 1;
+    // last colour word wins ("Army Blue" -> blue); German compounds too ("Dunkelrot", "Hellblau")
+    const rest = w.replace(/^(dunkel|hell|pastell)/, "");
+    if (COLOR_WORDS[w]) hex = COLOR_WORDS[w]; else if (COLOR_WORDS[rest]) hex = COLOR_WORDS[rest];
+  }
+  if (!hex || !shade) return hex;
+  const mix = shade < 0 ? 0 : 255, f = 0.35;
+  return "#" + [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * (1 - f) + mix * f)
+    .toString(16).padStart(2, "0")).join("");
+}
+
 function openSpoolDialog(item) {
   const it = { brand: "", material: "PLA", color: "#ffffff", color_name: "", count: 1, condition: "neu",
     spool_g: 1000, remaining_g: null, note: "", location: firstLocId(), ...item };
@@ -3156,7 +3190,13 @@ function openSpoolDialog(item) {
   };
   const colorInp = el("input", { type: "color", value: it.color });
   const nameInp = el("input", { value: it.color_name, placeholder: t("z. B. Jade White") });
-  nameInp.addEventListener("input", () => { it.color_name = nameInp.value; });
+  // a new spool takes its colour from the typed name, until a colour is chosen by hand
+  let colorByHand = !isNew;
+  nameInp.addEventListener("input", () => {
+    it.color_name = nameInp.value;
+    const hex = colorByHand ? null : colorFromName(nameInp.value);
+    if (hex) setColor(hex);
+  });
   const preview = el("span", {}, spoolIcon(it.color, { size: 34 }));
   const setColor = (hex, name) => {
     it.color = hex; colorInp.value = hex;
@@ -3164,7 +3204,7 @@ function openSpoolDialog(item) {
     if (name !== undefined) { it.color_name = name; nameInp.value = name; }
     renderSwatches();
   };
-  colorInp.addEventListener("input", () => setColor(colorInp.value));
+  colorInp.addEventListener("input", () => { colorByHand = true; setColor(colorInp.value); });
   const spoolG = input(t("Spulengewicht (g)"), "spool_g", { type: "number", min: "0", step: "50" });
 
   // brand -> materials -> colour swatches
@@ -3175,7 +3215,7 @@ function openSpoolDialog(item) {
     swatches.replaceChildren(...cols.map((c) => el("button", {
       type: "button", class: `cswatch${c.color.toLowerCase() === String(it.color).toLowerCase() && (c.name || "") === (it.color_name || "") ? " sel" : ""}`,
       title: [c.name, c.material].filter(Boolean).join(" · "),
-      onclick: () => setColor(c.color, c.name || ""),
+      onclick: () => { colorByHand = true; setColor(c.color, c.name || ""); },
     }, spoolIcon(c.color, { size: 22 }), el("span", {}, c.name || c.color))));
     swatches.hidden = !cols.length;
   };

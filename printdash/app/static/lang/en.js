@@ -530,6 +530,7 @@ Object.assign(I18N.en, {
   // spool rows and spool dialog
   "Verschieben": "Move",
   "+ {0} im Drucker geladen": "+ {0} loaded in a printer",
+  "Im Drucker geladen: {0}": "Loaded in printer: {0}",
   "+ {0} im Trockner": "+ {0} in a dryer",
   "getrocknet {0}": "dried {0}",
   "weniger": "less",

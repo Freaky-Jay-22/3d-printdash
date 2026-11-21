@@ -99,7 +99,7 @@ for the Klipper printer, a spreadsheet or notes for your filament, and Home Assi
 | Printer | Connection | Notes |
 |---|---|---|
 | **Bambu Lab printers** | LAN (MQTT, FTPS) | Camera: video stream on the X1, P2 and H2 series, still images on P1 and A1. For control see below. |
-| **Klipper printers with Moonraker** | HTTP API | e.g. Voron, Sovol, Snapmaker U1, Qidi Q2, Elegoo Centauri Carbon with COSMOS firmware. Multiple toolheads and the Qidi Box are supported. |
+| **Klipper printers with Moonraker** | HTTP API | e.g. Voron, Sovol, Snapmaker U1, Qidi Q2, Elegoo Centauri Carbon with COSMOS firmware. Multiple toolheads, the Qidi Box and AFC lanes (e.g. Box Turtle, OpenCreator on the Flashforge Creator 5 Pro – experimental) are supported. |
 | **Creality K1 series** *(experimental)* | Websocket | Stock firmware, no root needed. Status, temperatures, camera (also WebRTC or via Home Assistant), pause/stop, light and history. No file upload yet. Rooted with Moonraker: use "Klipper". |
 
 So far 3D-PrintDash has been tested with Bambu Lab X1C and P1S, a Snapmaker U1 and (by users) a Bambu Lab P2S, a Qidi Q2 and an Elegoo Centauri Carbon with COSMOS firmware.
@@ -479,7 +479,7 @@ Klipper-Drucker, eine Tabelle oder Notizen fürs Filament und Home Assistant fü
 | Drucker | Verbindung | Hinweise |
 |---|---|---|
 | **Bambu-Lab-Drucker** | LAN (MQTT, FTPS) | Kamera: Video-Stream bei der X1-, P2- und H2-Serie, Einzelbilder bei P1 und A1. Steuerung siehe unten. |
-| **Klipper-Drucker mit Moonraker** | HTTP-API | z. B. Voron, Sovol, Snapmaker U1, Qidi Q2, Elegoo Centauri Carbon mit COSMOS-Firmware. Mehrere Werkzeugköpfe und die Qidi Box werden unterstützt. |
+| **Klipper-Drucker mit Moonraker** | HTTP-API | z. B. Voron, Sovol, Snapmaker U1, Qidi Q2, Elegoo Centauri Carbon mit COSMOS-Firmware. Mehrere Werkzeugköpfe, die Qidi Box und AFC-Fächer (z. B. Box Turtle, OpenCreator auf dem Flashforge Creator 5 Pro – experimentell) werden unterstützt. |
 | **Creality K1-Serie** *(experimentell)* | Websocket | Normale Firmware, ohne Root. Status, Temperaturen, Kamera (auch WebRTC oder über Home Assistant), Pause/Stopp, Licht und Historie. Noch kein Datei-Upload. Gerootet mit Moonraker: «Klipper» wählen. |
 
 Getestet ist 3D-PrintDash bisher mit Bambu Lab X1C und P1S, einem Snapmaker U1 und (von Nutzern) einem Bambu Lab P2S, einem Qidi Q2 und einer Elegoo Centauri Carbon mit COSMOS-Firmware.

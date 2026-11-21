@@ -97,7 +97,7 @@ Klipper-Drucker, eine Tabelle oder Notizen fürs Filament und Home Assistant fü
 | Drucker | Verbindung | Hinweise |
 |---|---|---|
 | **Bambu-Lab-Drucker** | LAN (MQTT, FTPS) | Kamera: Video-Stream bei der X1-, P2- und H2-Serie, Einzelbilder bei P1 und A1. Steuerung siehe unten. |
-| **Klipper-Drucker mit Moonraker** | HTTP-API | z. B. Voron, Sovol, Snapmaker U1, Qidi Q2, Elegoo Centauri Carbon mit COSMOS-Firmware. Mehrere Werkzeugköpfe und die Qidi Box werden unterstützt. |
+| **Klipper-Drucker mit Moonraker** | HTTP-API | z. B. Voron, Sovol, Snapmaker U1, Qidi Q2, Elegoo Centauri Carbon mit COSMOS-Firmware. Mehrere Werkzeugköpfe, die Qidi Box und AFC-Fächer (z. B. Box Turtle, OpenCreator auf dem Flashforge Creator 5 Pro – experimentell) werden unterstützt. |
 | **Creality K1-Serie** *(experimentell)* | Websocket | Normale Firmware, ohne Root. Status, Temperaturen, Kamera (auch WebRTC oder über Home Assistant), Pause/Stopp, Licht und Historie. Noch kein Datei-Upload. Gerootet mit Moonraker: «Klipper» wählen. |
 
 Getestet ist 3D-PrintDash bisher mit Bambu Lab X1C und P1S, einem Snapmaker U1 und (von Nutzern) einem Bambu Lab P2S, einem Qidi Q2 und einer Elegoo Centauri Carbon mit COSMOS-Firmware.

@@ -96,7 +96,7 @@ for the Klipper printer, a spreadsheet or notes for your filament, and Home Assi
 | Printer | Connection | Notes |
 |---|---|---|
 | **Bambu Lab printers** | LAN (MQTT, FTPS) | Camera: video stream on the X1, P2 and H2 series, still images on P1 and A1. For control see below. |
-| **Klipper printers with Moonraker** | HTTP API | e.g. Voron, Sovol, Snapmaker U1, Qidi Q2, Elegoo Centauri Carbon with COSMOS firmware. Multiple toolheads and the Qidi Box are supported. |
+| **Klipper printers with Moonraker** | HTTP API | e.g. Voron, Sovol, Snapmaker U1, Qidi Q2, Elegoo Centauri Carbon with COSMOS firmware. Multiple toolheads, the Qidi Box and AFC lanes (e.g. Box Turtle, OpenCreator on the Flashforge Creator 5 Pro – experimental) are supported. |
 | **Creality K1 series** *(experimental)* | Websocket | Stock firmware, no root needed. Status, temperatures, camera (also WebRTC or via Home Assistant), pause/stop, light and history. No file upload yet. Rooted with Moonraker: use "Klipper". |
 
 So far 3D-PrintDash has been tested with Bambu Lab X1C and P1S, a Snapmaker U1 and (by users) a Bambu Lab P2S, a Qidi Q2 and an Elegoo Centauri Carbon with COSMOS firmware.

@@ -335,6 +335,8 @@ body.detail-open { overflow: hidden; }
 .spools { display: flex; flex-direction: column; gap: 6px; }
 .spool { display: grid; grid-template-columns: auto 1fr auto auto auto auto; gap: 8px; align-items: center; background: var(--panel-2); border-radius: 9px; padding: 7px 8px; }
 .spool.empty { opacity: .5; }
+/* all spools of this entry are in a printer or dryer right now: still listed, but dimmed */
+.spool.away { opacity: .7; }
 .spool .title { font-weight: 600; font-size: 14px; }
 .spool .sub { color: var(--muted); font-size: 12.5px; }
 .spool-main { min-width: 0; }
@@ -594,6 +596,9 @@ a.btn { text-decoration: none; }
 .spool .sub .cname { color: var(--text); opacity: .8; }
 .spool .sub .hex { font-size: 11px; opacity: .55; font-family: ui-monospace, monospace; }
 .spool .sub .snote { font-style: italic; opacity: .8; }
+/* the second line never cuts off text (Safari shrank the note and hid the rest): long colour names and notes wrap */
+.spool-main .sub { overflow: visible; text-overflow: clip; }
+.spool .sub > * { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .spool .loaded-badges .note { font-size: 12px; opacity: .8; }
 .settings-section > .pgroup:first-of-type { border-top: 0; padding-top: 0; margin-top: 4px; }
 /* history: each print shows the brand colour of its printer */

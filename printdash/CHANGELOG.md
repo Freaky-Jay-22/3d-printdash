@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.13
+
+**English**
+- Fix: spools that a printer recognises in its AMS no longer seem to disappear from their storage location – they stay listed, dimmed, with the printer and slot
+- Fix: long colour names and notes are no longer cut off
+- New: a new spool takes its colour from the typed colour name (e.g. "Army Blue", "Dark Red")
+- New (experimental): filament from AFC lanes for Klipper printers (e.g. Box Turtle, OpenCreator on the Flashforge Creator 5 Pro) – material, colour and fill level per lane
+
+**Deutsch**
+- Behoben: Spulen, die ein Drucker im AMS erkennt, scheinen nicht mehr aus ihrem Lagerort zu verschwinden – sie bleiben abgeblendet aufgeführt, mit Drucker und Fach
+- Behoben: lange Farbnamen und Notizen werden nicht mehr abgeschnitten
+- Neu: eine neue Spule übernimmt die Farbe aus dem eingetippten Farbnamen (z. B. «Army Blue», «Dunkelrot»)
+- Neu (experimentell): Filament aus AFC-Fächern bei Klipper-Druckern (z. B. Box Turtle, OpenCreator auf dem Flashforge Creator 5 Pro) – Material, Farbe und Füllstand pro Fach
+
 ## 0.3.12
 
 **English**

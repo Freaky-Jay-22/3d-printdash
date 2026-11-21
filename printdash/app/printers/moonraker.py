@@ -30,11 +30,14 @@ PRINT_STATE_MAP = {
 }
 # Automatic filament systems of Klipper printers: which spool is in which slot / toolhead.
 # key -> (name shown in the settings, prefix of the storage location). More can be added here
-# (e.g. Happy Hare / ERCF, AFC / Box Turtle) together with a detection and a reader.
+# (e.g. Happy Hare / ERCF) together with a detection and a reader.
 FILAMENT_SYSTEMS = {
     "qidi_box": ("Qidi Box", "Qidi Box"),
     "snapmaker": ("Snapmaker U1", "Werkzeugköpfe"),
+    # AFC Klipper add-on (Box Turtle, Night Owl, OpenCreator on the Flashforge Creator 5 …), experimental
+    "afc": ("AFC", "AFC"),
 }
+AFC_LANE_PREFIXES = ("AFC_lane ", "AFC_stepper ")
 LIGHT_PREFIXES = ("output_pin ", "led ", "neopixel ", "dotstar ", "pca9533 ", "pca9632 ")
 
 
@@ -128,6 +131,8 @@ class MoonrakerPrinter(BasePrinter):
             self.detected_system = "qidi_box"
         elif "print_task_config" in self.objects or "filament_detect" in self.objects:
             self.detected_system = "snapmaker"
+        elif "AFC" in self.objects:
+            self.detected_system = "afc"
         else:
             self.detected_system = None
         self.qidi_box = self.system_key() == "qidi_box"  # Qidi Box: slots are in save_variables
@@ -191,6 +196,9 @@ class MoonrakerPrinter(BasePrinter):
                 light_obj = self.light_object()
                 if light_obj:
                     objs.append(light_obj)
+                if self.system_key() == "afc":
+                    # AFC: the main object (which lane is loaded) and one object per lane
+                    objs += [o for o in self.objects if o == "AFC" or o.startswith(AFC_LANE_PREFIXES)]
                 for extra in ("print_task_config", "filament_detect"):
                     if extra in self.objects:
                         objs.append(extra)
@@ -412,6 +420,8 @@ class MoonrakerPrinter(BasePrinter):
         key = self.system_key()
         if key == "qidi_box":
             return qidi.filaments((s.get("save_variables") or {}).get("variables") or {})
+        if key == "afc":
+            return self._afc_filaments(s)
         if key != "snapmaker":
             return []
         ptc = s.get("print_task_config") or {}
@@ -449,6 +459,30 @@ class MoonrakerPrinter(BasePrinter):
                 "vendor": vendor if ftype else "",
                 "active": bool(name) and name == active_extruder,
                 "remain": None,
+            })
+        return out
+
+    def _afc_filaments(self, s: dict) -> list:
+        """AFC add-on: one entry per lane (fields as reported by AFC_lane.get_status: name, lane, map,
+        load, prep, tool_loaded, material, color, weight, initial_weight). The slot is the tool the lane
+        feeds (T0, T1 …), or the lane name when several lanes feed the same tool."""
+        current = (s.get("AFC") or {}).get("current_load")
+        lanes = [v for k, v in s.items() if k.startswith(AFC_LANE_PREFIXES) and isinstance(v, dict) and v.get("name")]
+        lanes.sort(key=lambda v: (str(v.get("unit") or ""), _to_float(v.get("lane")) or 0, str(v.get("name"))))
+        maps = [str(v.get("map") or "") for v in lanes]
+        out = []
+        for v, m in zip(lanes, maps):
+            present = bool(v.get("load") or v.get("prep") or v.get("tool_loaded"))
+            material = str(v.get("material") or "").strip() if present else ""
+            weight, full = _to_float(v.get("weight")), _to_float(v.get("initial_weight"))
+            out.append({
+                "uid": None,
+                "slot": m if m and maps.count(m) == 1 else str(v.get("name")),
+                "type": material,
+                "color": _parse_color(v.get("color")) if material else None,
+                "vendor": "",
+                "active": bool(v.get("tool_loaded")) or (current is not None and current == v.get("name")),
+                "remain": round(weight / full * 100) if material and weight is not None and full else None,
             })
         return out
 
